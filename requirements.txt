@@ -1,0 +1,8 @@
+Flask==3.0.3
+werkzeug==3.0.3
+zeroconf
+requests
+numpy
+torch
+torchaudio
+speechbrain==0.5.16

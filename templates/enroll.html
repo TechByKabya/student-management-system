@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Enroll New Student</h2>
+        <p class="text-gray-500 mt-2 text-lg">Step 1: Create the basic profile and upload a photo.</p>
+    </div>
+
+    <div class="glass-panel text-gray-800 p-8 rounded-2xl shadow-xl relative overflow-hidden">
+        <div
+            class="absolute top-0 right-0 w-64 h-64 bg-indigo-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 -mr-10 -mt-20">
+        </div>
+        <div
+            class="absolute bottom-0 left-0 w-64 h-64 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 -ml-20 -mb-20">
+        </div>
+
+        <form action="{{ url_for('enroll') }}" method="POST" enctype="multipart/form-data"
+            class="space-y-6 relative z-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-1">
+                    <label for="name" class="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-user text-gray-400"></i>
+                        </div>
+                        <input type="text" name="name" id="name"
+                            class="block w-full pl-10 pr-3 py-3 bg-white/60 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            placeholder="Enter your name" required>
+                    </div>
+                </div>
+
+                <div class="md:col-span-1">
+                    <label for="phone" class="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-phone text-gray-400"></i>
+                        </div>
+                        <input type="text" name="phone" id="phone"
+                            class="block w-full pl-10 pr-3 py-3 bg-white/60 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            placeholder="+88017..." required>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="school_id" class="block text-sm font-bold text-gray-700 mb-2">School Identifying Number
+                        (SID)</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-id-card text-gray-400"></i>
+                        </div>
+                        <input type="text" name="school_id" id="school_id"
+                            class="block w-full pl-10 pr-3 py-3 bg-white/60 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition-colors font-mono"
+                            placeholder="252-15-254" pattern="\d{3}-\d{2}-\d{3}"
+                            title="Format must be like 252-15-254 (3 digits, hyphen, 2 digits, hyphen, 3 digits)"
+                            required>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> Format explicitly
+                        required: XXX-XX-XXX (e.g., 252-15-254)</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="photo" class="block text-sm font-bold text-gray-700 mb-2">Profile Photo
+                        (Optional)</label>
+                    <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl bg-white/40 hover:bg-white/60 transition-colors group relative cursor-pointer"
+                        onclick="document.getElementById('photo').click()">
+                        <div class="space-y-1 text-center">
+                            <i
+                                class="fa-solid fa-image text-4xl text-gray-400 group-hover:text-indigo-500 transition-colors mb-3"></i>
+                            <div class="flex text-sm text-gray-600 justify-center">
+                                <span
+                                    class="relative rounded-md font-bold text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                    <span>Upload a file</span>
+                                    <input id="photo" name="photo" type="file" class="sr-only" accept="image/*"
+                                        onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'No file chosen'">
+                                </span>
+                                <p class="pl-1">or drag and drop</p>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2 font-mono" id="file-name">
+                                PNG, JPG, GIF up to 16MB
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-200 flex justify-end">
+                <a href="{{ url_for('students') }}"
+                    class="py-3 px-6 mr-4 border border-gray-300 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit"
+                    class="inline-flex justify-center py-3 px-8 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform hover:-translate-y-0.5 transition-all">
+                    Next: Setup Sensors <i class="fa-solid fa-arrow-right ml-2 mt-0.5"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

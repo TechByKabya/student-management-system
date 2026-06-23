@@ -1,0 +1,684 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{# ── Computed stats ── #}
+
+{% set total_recs     = recordings|length %}
+{% set total_matches  = matches|length %}
+{% set proxy_count    = matches|selectattr('is_proxy', 'equalto', 1)|list|length %}
+{% set clean_count    = total_matches - proxy_count %}
+{% set clean_rate     = ((clean_count / total_matches * 100)|round(0)|int) if total_matches > 0 else 100 %}
+{% set proxy_recs     = recordings|selectattr('is_proxy_source', 'equalto', 1)|list %}
+{% set clean_recs     = recordings|selectattr('is_proxy_source', 'equalto', 0)|list %}
+
+<style>
+  /* ── Design tokens ── */
+  :root {
+    --vm-bg:        #f0f4ff;
+    --vm-panel:     #ffffff;
+    --vm-border:    #e4e9f5;
+    --vm-navy:      #1e2a4a;
+    --vm-indigo:    #4f6ef7;
+    --vm-green:     #10b981;
+    --vm-amber:     #f59e0b;
+    --vm-red:       #ef4444;
+    --vm-gray:      #64748b;
+    --vm-gray-lt:   #94a3b8;
+    --vm-radius:    14px;
+    --vm-shadow:    0 2px 16px rgba(30,42,74,.07);
+    --vm-shadow-lg: 0 4px 32px rgba(30,42,74,.12);
+  }
+
+  .vm-page { display:flex; flex-direction:column; gap:24px; font-family:'Inter',sans-serif; }
+
+  /* ── Header ── */
+  .vm-header {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    flex-wrap:wrap; gap:16px;
+  }
+  .vm-header-left h1 {
+    font-size:1.6rem; font-weight:800; color:var(--vm-navy);
+    display:flex; align-items:center; gap:12px; margin:0;
+  }
+  .vm-icon-wrap {
+    width:42px; height:42px; border-radius:12px;
+    background:linear-gradient(135deg,#4f6ef7,#7c3aed);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 12px rgba(79,110,247,.35);
+    flex-shrink:0;
+  }
+  .vm-icon-wrap i { color:#fff; font-size:1rem; }
+  .vm-subtitle { color:var(--vm-gray); font-size:.82rem; margin:.4rem 0 0 54px; }
+  .vm-subtitle strong { color:var(--vm-indigo); }
+
+  /* ── Date picker ── */
+  .vm-date-form {
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .vm-date-form label { font-size:.78rem; font-weight:600; color:var(--vm-navy); white-space:nowrap; }
+  .vm-date-form select {
+    border:1.5px solid var(--vm-border); border-radius:9px;
+    padding:7px 12px; font-size:.82rem; color:var(--vm-navy);
+    background:#fff; cursor:pointer; outline:none;
+    transition:border-color .2s;
+  }
+  .vm-date-form select:focus { border-color:var(--vm-indigo); }
+  .vm-btn-refresh {
+    display:flex; align-items:center; gap:6px;
+    background:var(--vm-indigo); color:#fff;
+    border:none; border-radius:9px;
+    padding:7px 16px; font-size:.82rem; font-weight:600;
+    cursor:pointer; transition:opacity .2s;
+  }
+  .vm-btn-refresh:hover { opacity:.85; }
+
+  /* ── Stats bar ── */
+  .vm-stats {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
+  }
+  @media(max-width:900px){ .vm-stats { grid-template-columns:repeat(2,1fr); } }
+  @media(max-width:500px){ .vm-stats { grid-template-columns:1fr; } }
+
+  .vm-stat {
+    background:var(--vm-panel); border:1.5px solid var(--vm-border);
+    border-radius:var(--vm-radius); padding:18px 20px;
+    display:flex; align-items:center; gap:16px;
+    box-shadow:var(--vm-shadow);
+  }
+  .vm-stat-icon {
+    width:44px; height:44px; border-radius:11px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:1.1rem;
+  }
+  .vm-stat-icon.blue   { background:#eff6ff; color:#3b82f6; }
+  .vm-stat-icon.indigo { background:#eef2ff; color:#6366f1; }
+  .vm-stat-icon.red    { background:#fef2f2; color:var(--vm-red); }
+  .vm-stat-icon.green  { background:#ecfdf5; color:var(--vm-green); }
+  .vm-stat-val { font-size:1.75rem; font-weight:800; color:var(--vm-navy); line-height:1; }
+  .vm-stat-lbl { font-size:.75rem; color:var(--vm-gray); margin-top:3px; font-weight:500; }
+
+  /* ── Two-column layout ── */
+  .vm-columns {
+    display:grid; grid-template-columns:2fr 3fr; gap:20px; align-items:start;
+  }
+  @media(max-width:1100px){ .vm-columns { grid-template-columns:1fr; } }
+
+  /* ── Panel ── */
+  .vm-panel {
+    background:var(--vm-panel); border:1.5px solid var(--vm-border);
+    border-radius:var(--vm-radius); box-shadow:var(--vm-shadow);
+    overflow:hidden;
+  }
+  .vm-panel-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 20px 14px; border-bottom:1.5px solid var(--vm-border);
+    background:#fafbff;
+  }
+  .vm-panel-title {
+    font-size:.9rem; font-weight:700; color:var(--vm-navy);
+    display:flex; align-items:center; gap:8px;
+  }
+  .vm-panel-title i { color:var(--vm-indigo); }
+  .vm-panel-body { padding:16px; }
+
+  /* ── Recording cards ── */
+  .vm-rec-list { display:flex; flex-direction:column; gap:10px; max-height:620px; overflow-y:auto; padding-right:4px; }
+  .vm-rec-list::-webkit-scrollbar { width:4px; }
+  .vm-rec-list::-webkit-scrollbar-thumb { background:var(--vm-border); border-radius:4px; }
+
+  .vm-rec-card {
+    border:1.5px solid var(--vm-border); border-radius:11px;
+    padding:13px 15px; background:#fafbff;
+    transition:box-shadow .2s, border-color .2s;
+  }
+  .vm-rec-card:hover { box-shadow:0 3px 14px rgba(79,110,247,.12); border-color:#c7d2fe; }
+  .vm-rec-card.is-proxy { border-color:#fecaca; background:#fff9f9; }
+  .vm-rec-card.is-proxy:hover { border-color:#f87171; box-shadow:0 3px 14px rgba(239,68,68,.1); }
+
+  .vm-rec-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+  .vm-rec-name { font-weight:700; font-size:.85rem; color:var(--vm-navy); }
+  .vm-rec-id   { font-size:.72rem; color:var(--vm-gray-lt); font-family:monospace; margin-top:1px; }
+  .vm-rec-meta { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .vm-rec-time { font-size:.72rem; color:var(--vm-gray-lt); }
+
+  .vm-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:2px 8px; border-radius:20px; font-size:.68rem; font-weight:700; letter-spacing:.02em;
+  }
+  .vm-badge.clean  { background:#d1fae5; color:#065f46; }
+  .vm-badge.proxy  { background:#fee2e2; color:#991b1b; }
+  .vm-badge.excluded { background:#fef3c7; color:#92400e; }
+
+  .vm-audio {
+    width:100%; height:32px; border-radius:6px;
+    accent-color:var(--vm-indigo);
+  }
+  .vm-proxy-note {
+    margin-top:7px; font-size:.7rem; color:#b91c1c;
+    display:flex; align-items:center; gap:4px;
+    background:#fef2f2; border-radius:6px; padding:4px 8px;
+  }
+
+  /* ── Section dividers in recording list ── */
+  .vm-rec-section-label {
+    font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--vm-gray-lt); padding:4px 2px 6px; display:flex; align-items:center; gap:8px;
+  }
+  .vm-rec-section-label::after { content:''; flex:1; height:1px; background:var(--vm-border); }
+
+  /* ── Empty state ── */
+  .vm-empty {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:52px 20px; text-align:center; color:var(--vm-gray);
+  }
+  .vm-empty-icon {
+    width:56px; height:56px; border-radius:50%; background:#f1f5f9;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.4rem; color:var(--vm-gray-lt); margin-bottom:14px;
+  }
+  .vm-empty h3 { margin:0 0 4px; font-size:.9rem; color:var(--vm-navy); }
+  .vm-empty p  { margin:0; font-size:.78rem; color:var(--vm-gray-lt); }
+
+  /* ── Filter pills ── */
+  .vm-filters { display:flex; gap:8px; flex-wrap:wrap; }
+  .vm-filter-btn {
+    padding:5px 14px; border-radius:20px; font-size:.75rem; font-weight:600;
+    border:1.5px solid var(--vm-border); background:#fff; color:var(--vm-gray);
+    cursor:pointer; transition:all .15s;
+  }
+  .vm-filter-btn:hover { border-color:var(--vm-indigo); color:var(--vm-indigo); }
+  .vm-filter-btn.active {
+    background:var(--vm-indigo); color:#fff; border-color:var(--vm-indigo);
+  }
+  .vm-filter-btn.active-proxy  { background:var(--vm-red);  color:#fff; border-color:var(--vm-red);  }
+  .vm-filter-btn.active-clean  { background:var(--vm-green); color:#fff; border-color:var(--vm-green);}
+
+  /* ── Analysis table ── */
+  .vm-table-wrap { overflow-x:auto; max-height:580px; overflow-y:auto; }
+  .vm-table-wrap::-webkit-scrollbar { width:4px; height:4px; }
+  .vm-table-wrap::-webkit-scrollbar-thumb { background:var(--vm-border); border-radius:4px; }
+
+  .vm-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  .vm-table thead th {
+    position:sticky; top:0; z-index:1;
+    background:#f8faff; border-bottom:2px solid var(--vm-border);
+    padding:10px 14px; text-align:left;
+    font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--vm-gray); white-space:nowrap;
+  }
+  .vm-table thead th.center { text-align:center; }
+  .vm-table tbody tr { border-bottom:1px solid var(--vm-border); transition:background .12s; }
+  .vm-table tbody tr:last-child { border-bottom:none; }
+  .vm-table tbody tr:hover { background:#f8faff; }
+  .vm-table tbody tr.row-proxy { background:#fff9f9; }
+  .vm-table tbody tr.row-proxy:hover { background:#fef2f2; }
+  .vm-table td { padding:11px 14px; vertical-align:middle; }
+  .vm-table td.center { text-align:center; }
+
+  .vm-student-name { font-weight:600; color:var(--vm-navy); }
+  .vm-student-id   { font-size:.7rem; color:var(--vm-gray-lt); font-family:monospace; margin-top:1px; }
+
+  /* Score bar */
+  .vm-score-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .vm-score-bar-bg { width:80px; height:6px; background:#e2e8f0; border-radius:4px; overflow:hidden; }
+  .vm-score-bar    { height:100%; border-radius:4px; transition:width .4s; }
+  .vm-score-val    { font-weight:700; font-size:.82rem; }
+
+  /* Status badges */
+  .vm-status {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700;
+    white-space:nowrap;
+  }
+  .vm-status.proxy   { background:#fee2e2; color:#991b1b; }
+  .vm-status.suspect { background:#fef3c7; color:#92400e; }
+  .vm-status.clean   { background:#d1fae5; color:#065f46; }
+
+  /* Resolution badge */
+  .vm-resolved {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:6px; font-size:.7rem; font-weight:600;
+  }
+  .vm-resolved.fp   { background:#dbeafe; color:#1e40af; }
+  .vm-resolved.bl   { background:#fee2e2; color:#991b1b; }
+  .vm-resolved.none { color:var(--vm-gray-lt); font-style:italic; }
+  .vm-pending       { color:#d97706; font-size:.72rem; font-weight:600; }
+
+  /* Play buttons */
+  .vm-play-btn {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 10px; border-radius:7px; font-size:.72rem; font-weight:600;
+    border:none; cursor:pointer; transition:all .15s;
+  }
+  .vm-play-btn.a { background:#eef2ff; color:#4f46e5; }
+  .vm-play-btn.b { background:#f5f3ff; color:#7c3aed; }
+  .vm-play-btn:hover { filter:brightness(.92); transform:translateY(-1px); }
+
+  /* ── Legend ── */
+  .vm-legend {
+    background:var(--vm-panel); border:1.5px solid var(--vm-border);
+    border-radius:var(--vm-radius); padding:16px 20px;
+    display:flex; flex-wrap:wrap; gap:20px; align-items:center;
+    box-shadow:var(--vm-shadow);
+  }
+  .vm-legend-item { display:flex; align-items:center; gap:8px; font-size:.78rem; color:var(--vm-gray); }
+  .vm-legend-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .vm-legend-note { margin-left:auto; font-size:.72rem; color:var(--vm-gray-lt); display:flex; align-items:center; gap:5px; }
+</style>
+
+<div class="vm-page">
+
+  {# ── Page Header ── #}
+  <div class="vm-header">
+    <div class="vm-header-left">
+      <h1>
+        <span class="vm-icon-wrap"><i class="fa-solid fa-microphone-lines"></i></span>
+        Voice Monitor
+      </h1>
+      <p class="vm-subtitle">
+        Real-time cross-match proxy detection &middot;
+        Engine: <strong>SpeechBrain ECAPA-TDNN</strong> &middot;
+        Scope: <strong>Same-day only</strong>
+      </p>
+    </div>
+    <form method="GET" action="/voice_monitor" class="vm-date-form">
+      <label for="date-select"><i class="fa-regular fa-calendar"></i> Date:</label>
+      <select name="date" id="date-select" onchange="this.form.submit()">
+        {% for d in dates %}
+          <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+        {% if not dates %}
+          <option value="{{ selected_date }}">{{ selected_date }}</option>
+        {% endif %}
+      </select>
+      <button type="submit" class="vm-btn-refresh">
+        <i class="fa-solid fa-rotate-right"></i> Refresh
+      </button>
+    </form>
+  </div>
+
+  {# ── Stats Bar ── #}
+  <div class="vm-stats">
+    <div class="vm-stat">
+      <div class="vm-stat-icon blue"><i class="fa-solid fa-waveform-lines"></i></div>
+      <div>
+        <div class="vm-stat-val">{{ total_recs }}</div>
+        <div class="vm-stat-lbl">Recordings Today</div>
+      </div>
+    </div>
+    <div class="vm-stat">
+      <div class="vm-stat-icon indigo"><i class="fa-solid fa-arrows-cross"></i></div>
+      <div>
+        <div class="vm-stat-val">{{ total_matches }}</div>
+        <div class="vm-stat-lbl">Comparisons Run</div>
+      </div>
+    </div>
+    <div class="vm-stat">
+      <div class="vm-stat-icon red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div>
+        <div class="vm-stat-val" id="proxy-count">{{ proxy_count }}</div>
+        <div class="vm-stat-lbl">Proxy Flags Detected</div>
+      </div>
+    </div>
+    <div class="vm-stat">
+      <div class="vm-stat-icon green"><i class="fa-solid fa-shield-check"></i></div>
+      <div>
+        <div class="vm-stat-val">{{ clean_rate }}%</div>
+        <div class="vm-stat-lbl">Clean Rate</div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Two-column layout ── #}
+  <div class="vm-columns">
+
+    {# ── LEFT: Voice Recordings ── #}
+    <div class="vm-panel">
+      <div class="vm-panel-header">
+        <span class="vm-panel-title">
+          <i class="fa-solid fa-microphone"></i>
+          Recorded Voices — {{ selected_date }}
+        </span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="vm-badge {% if proxy_recs %}proxy{% else %}clean{% endif %}">
+            {% if proxy_recs %}
+              <i class="fa-solid fa-circle-exclamation"></i> {{ proxy_recs|length }} proxy
+            {% else %}
+              <i class="fa-solid fa-circle-check"></i> All clean
+            {% endif %}
+          </span>
+          {% if recordings %}
+          <form method="POST" action="/action/clear_all_voice_logs" class="inline"
+                onsubmit="return confirm('Reset all voice logs for {{ selected_date }}?\n\nAudio files are kept on disk — only database entries will be cleared.\nUse this to demo the system again.');">
+            <input type="hidden" name="date" value="{{ selected_date }}">
+            <button type="submit"
+                    title="Reset voice data for this date (audio files preserved)"
+                    style="display:inline-flex;align-items:center;gap:5px;
+                           padding:4px 11px;border-radius:8px;border:1.5px solid #fca5a5;
+                           background:#fef2f2;color:#b91c1c;font-size:.72rem;font-weight:700;
+                           cursor:pointer;transition:all .15s;"
+                    onmouseover="this.style.background='#fee2e2'"
+                    onmouseout="this.style.background='#fef2f2'">
+              <i class="fa-solid fa-rotate-left"></i> Reset Demo
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="vm-panel-body">
+        {% if recordings %}
+          <div class="vm-rec-list" id="recordings-list">
+
+            {# Clean recordings first #}
+            {% if clean_recs %}
+              <div class="vm-rec-section-label">
+                <i class="fa-solid fa-circle-check" style="color:var(--vm-green)"></i>
+                Verified ({{ clean_recs|length }})
+              </div>
+              {% for rec in recordings if not rec.is_proxy_source %}
+              <div class="vm-rec-card" id="card-{{ rec.student_id }}">
+                <div class="vm-rec-top">
+                  <div>
+                    <div class="vm-rec-name">{{ rec.name }}</div>
+                    <div class="vm-rec-id">{{ rec.school_id }}</div>
+                  </div>
+                  <div class="vm-rec-meta">
+                    <span class="vm-rec-time">{{ rec.recorded_at[11:16] if rec.recorded_at else '—' }}</span>
+                    <span class="vm-badge clean"><i class="fa-solid fa-check"></i> Clean</span>
+                  </div>
+                </div>
+                <audio controls preload="none" class="vm-audio"
+                       id="audio-{{ rec.student_id }}"
+                       src="/static/{{ rec.file_path }}">
+                  Your browser does not support audio.
+                </audio>
+              </div>
+              {% endfor %}
+            {% endif %}
+
+            {# Proxy-flagged recordings #}
+            {% if proxy_recs %}
+              <div class="vm-rec-section-label" style="margin-top:8px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:var(--vm-red)"></i>
+                Proxy Flagged — Excluded from matching ({{ proxy_recs|length }})
+              </div>
+              {% for rec in recordings if rec.is_proxy_source %}
+              <div class="vm-rec-card is-proxy" id="card-{{ rec.student_id }}">
+                <div class="vm-rec-top">
+                  <div>
+                    <div class="vm-rec-name">{{ rec.name }}</div>
+                    <div class="vm-rec-id">{{ rec.school_id }}</div>
+                  </div>
+                  <div class="vm-rec-meta">
+                    <span class="vm-rec-time">{{ rec.recorded_at[11:16] if rec.recorded_at else '—' }}</span>
+                    <span class="vm-badge proxy"><i class="fa-solid fa-ban"></i> Proxy</span>
+                  </div>
+                </div>
+                <audio controls preload="none" class="vm-audio"
+                       id="audio-{{ rec.student_id }}"
+                       src="/static/{{ rec.file_path }}">
+                  Your browser does not support audio.
+                </audio>
+                <div class="vm-proxy-note">
+                  <i class="fa-solid fa-circle-info"></i>
+                  Kept for audit — excluded from future comparisons
+                </div>
+              </div>
+              {% endfor %}
+            {% endif %}
+
+          </div>
+        {% else %}
+          <div class="vm-empty">
+            <div class="vm-empty-icon"><i class="fa-solid fa-microphone-slash"></i></div>
+            <h3>No recordings yet</h3>
+            <p>Voice data appears here after students scan their RFID card</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── RIGHT: Cross-Match Analysis ── #}
+    <div class="vm-panel">
+      <div class="vm-panel-header">
+        <span class="vm-panel-title">
+          <i class="fa-solid fa-dna"></i>
+          Voice Cross-Match Analysis
+        </span>
+        <div class="vm-filters" id="filter-btns">
+          <button class="vm-filter-btn active" id="btn-all"    onclick="filterMatches('all')">All</button>
+          <button class="vm-filter-btn"         id="btn-proxy" onclick="filterMatches('proxy')">
+            <i class="fa-solid fa-triangle-exclamation"></i> Proxy ({{ proxy_count }})
+          </button>
+          <button class="vm-filter-btn"         id="btn-ok"    onclick="filterMatches('ok')">
+            <i class="fa-solid fa-circle-check"></i> Clean ({{ clean_count }})
+          </button>
+        </div>
+      </div>
+
+      {% if matches %}
+      <div class="vm-table-wrap">
+        <table class="vm-table" id="matches-table">
+          <thead>
+            <tr>
+              <th>Scanner (A)</th>
+              <th>Compared With (B)</th>
+              <th class="center">Similarity Score</th>
+              <th class="center">Status</th>
+              <th class="center">Resolution</th>
+              <th class="center">Listen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in matches %}
+            {% set score_pct = (m.score * 100)|round(1) %}
+            <tr class="match-row {% if m.is_proxy %}row-proxy proxy-row{% else %}clean-row{% endif %}"
+                data-proxy="{{ m.is_proxy }}">
+
+              {# Student A #}
+              <td>
+                <div class="vm-student-name">{{ m.student_a_name }}</div>
+                <div class="vm-student-id">{{ m.student_a_school_id }}</div>
+              </td>
+
+              {# Student B #}
+              <td>
+                <div class="vm-student-name">{{ m.student_b_name }}</div>
+                <div class="vm-student-id">{{ m.student_b_school_id }}</div>
+              </td>
+
+              {# Score bar #}
+              <td class="center">
+                <div class="vm-score-wrap">
+                  {% set bar = [[score_pct, 0]|max, 100]|min %}
+                  <div class="vm-score-bar-bg">
+                    <div class="vm-score-bar"
+                         style="width:{{ bar }}%; background:{% if m.is_proxy %}var(--vm-red){% elif m.score >= 0.20 %}var(--vm-amber){% else %}var(--vm-green){% endif %}">
+                    </div>
+                  </div>
+                  <span class="vm-score-val"
+                        style="color:{% if m.is_proxy %}var(--vm-red){% elif m.score >= 0.20 %}var(--vm-amber){% else %}var(--vm-green){% endif %}">
+                    {{ "%.1f"|format(score_pct) }}%
+                    <span style="font-size:.68rem;font-weight:400;color:var(--vm-gray-lt);">({{ m.score|round(4) }})</span>
+                  </span>
+                </div>
+              </td>
+
+              {# Status #}
+              <td class="center">
+                {% if m.is_proxy %}
+                  <span class="vm-status proxy"><i class="fa-solid fa-triangle-exclamation"></i> PROXY</span>
+                {% elif score_pct >= 50 %}
+                  <span class="vm-status suspect"><i class="fa-solid fa-circle-question"></i> SUSPECT</span>
+                {% else %}
+                  <span class="vm-status clean"><i class="fa-solid fa-circle-check"></i> CLEAN</span>
+                {% endif %}
+              </td>
+
+              {# Resolution #}
+              <td class="center">
+                {% if m.resolved_by %}
+                  {% if m.resolved_by == 'FINGERPRINT_OK' %}
+                    <span class="vm-resolved fp">
+                      <i class="fa-solid fa-fingerprint"></i> Verified
+                    </span>
+                  {% elif m.resolved_by == 'BLACKLISTED' %}
+                    <span class="vm-resolved bl">
+                      <i class="fa-solid fa-ban"></i> Blacklisted
+                    </span>
+                  {% else %}
+                    <span class="vm-resolved" style="background:#f1f5f9;color:var(--vm-gray);">
+                      {{ m.resolved_by.replace('_', ' ') }}
+                    </span>
+                  {% endif %}
+                {% elif m.is_proxy %}
+                  <span class="vm-pending">
+                    <i class="fa-regular fa-clock"></i> Pending audit
+                  </span>
+                {% else %}
+                  <span class="vm-resolved none">—</span>
+                {% endif %}
+              </td>
+
+              {# Listen #}
+              <td class="center">
+                <div style="display:flex;justify-content:center;gap:6px;">
+                  <button class="vm-play-btn a"
+                          onclick="playStudentAudio({{ m.student_a_id }})"
+                          title="Play {{ m.student_a_name }}'s voice">
+                    <i class="fa-solid fa-play"></i> A
+                  </button>
+                  <button class="vm-play-btn b"
+                          onclick="playStudentAudio({{ m.student_b_id }})"
+                          title="Play {{ m.student_b_name }}'s voice">
+                    <i class="fa-solid fa-play"></i> B
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Table footer: count visible rows #}
+      <div style="padding:10px 18px; border-top:1.5px solid var(--vm-border); background:#fafbff;
+                  display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:.75rem;color:var(--vm-gray-lt);">
+          Showing <strong id="visible-row-count">{{ total_matches }}</strong> of {{ total_matches }} comparisons
+        </span>
+        <span style="font-size:.72rem;color:var(--vm-gray-lt);">
+          <i class="fa-solid fa-circle-info"></i>
+          Matching is same-day only &mdash; past days are never compared
+        </span>
+      </div>
+
+      {% else %}
+        <div class="vm-empty">
+          <div class="vm-empty-icon"><i class="fa-solid fa-chart-scatter"></i></div>
+          <h3>No comparisons yet</h3>
+          <p>Comparisons run automatically as students scan in throughout the day</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>{# end vm-columns #}
+
+  {# ── Legend ── #}
+  <div class="vm-legend">
+    <div class="vm-legend-item">
+      <div class="vm-legend-dot" style="background:var(--vm-green)"></div>
+      <span><strong>Clean</strong> — Score &lt; 20% · Clearly different speakers</span>
+    </div>
+    <div class="vm-legend-item">
+      <div class="vm-legend-dot" style="background:var(--vm-amber)"></div>
+      <span><strong>Suspect</strong> — Score 20–50% · Monitored, no action taken</span>
+    </div>
+    <div class="vm-legend-item">
+      <div class="vm-legend-dot" style="background:var(--vm-red)"></div>
+      <span><strong>Proxy</strong> — AI model flagged same speaker · Triggers fingerprint audit</span>
+    </div>
+    <div class="vm-legend-item" style="margin-left:4px;">
+      <div class="vm-legend-dot" style="background:#f59e0b; border:2px solid #d97706; box-sizing:border-box;"></div>
+      <span><strong>Excluded</strong> — Proxy voice kept for review but not used in future comparisons</span>
+    </div>
+    <div class="vm-legend-note">
+      <i class="fa-solid fa-shield-halved"></i>
+      Scores are cosine similarity — same speaker: 0.25–0.55 typical
+    </div>
+  </div>
+
+</div>{# end vm-page #}
+
+{# Hidden audio element for on-demand playback #}
+<audio id="preview-audio" style="display:none;"></audio>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Build a map of student_id → audio file path for on-demand playback
+  const recordingMap = {};
+  {% for rec in recordings %}
+  recordingMap[{{ rec.student_id }}] = "/static/{{ rec.file_path }}";
+  {% endfor %}
+
+  function playStudentAudio(studentId) {
+    const src = recordingMap[studentId];
+    if (!src) {
+      alert('No recording found for this student on the selected date.');
+      return;
+    }
+    // Scroll the card into view and play its embedded player if visible
+    const audioEl = document.getElementById('audio-' + studentId);
+    if (audioEl) {
+      const card = document.getElementById('card-' + studentId);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      audioEl.play().catch(() => {});
+      return;
+    }
+    // Fallback: hidden preview player
+    const preview = document.getElementById('preview-audio');
+    preview.src = src;
+    preview.play().catch(e => console.warn('Preview play failed:', e));
+  }
+
+  // ── Filter table rows ──
+  function filterMatches(type) {
+    const rows = document.querySelectorAll('#matches-table .match-row');
+    let visible = 0;
+    rows.forEach(row => {
+      const isProxy = row.dataset.proxy === '1';
+      let show = true;
+      if (type === 'proxy') show = isProxy;
+      else if (type === 'ok')  show = !isProxy;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    document.getElementById('visible-row-count').textContent = visible;
+
+    // Update button styles
+    document.querySelectorAll('.vm-filter-btn').forEach(btn => {
+      btn.classList.remove('active', 'active-proxy', 'active-clean');
+    });
+    const active = document.getElementById('btn-' + type);
+    if (!active) return;
+    if (type === 'all')   active.classList.add('active');
+    if (type === 'proxy') active.classList.add('active-proxy');
+    if (type === 'ok')    active.classList.add('active-clean');
+  }
+
+  // ── Auto-refresh proxy count every 15s ──
+  setInterval(async () => {
+    try {
+      const dateVal = document.getElementById('date-select')?.value || '';
+      const res = await fetch(`/api/voice/matches?date=${dateVal}`);
+      if (!res.ok) return;
+      const newMatches = await res.json();
+      const proxyCount = newMatches.filter(m => m.is_proxy === 1).length;
+      document.getElementById('proxy-count').textContent = proxyCount;
+    } catch(e) {}
+  }, 15000);
+</script>
+{% endblock %}

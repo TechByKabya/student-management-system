@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Academic Grading</h2>
+            <p class="text-gray-500 mt-1">Select a student to manage marks for Programming & Problem Solving Lab.</p>
+        </div>
+
+        <button onclick="sendGradesSMS()" id="btn-send-grades"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all border border-indigo-500/30 focus:outline-none focus:ring-4 focus:ring-indigo-500/20">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Send SMS Results to All</span>
+        </button>
+    </div>
+
+    <div class="glass-panel overflow-hidden rounded-2xl shadow-lg border border-gray-200">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50/50">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student
+                            Name</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Roll
+                            Number</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Quiz
+                            Avg</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total
+                            Marks</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Result
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white/80 divide-y divide-gray-200">
+                    {% for student in students %}
+                    {% set q_avg = (student.q1 + student.q2 + student.q3) / 3 %}
+                    {% set total = q_avg + student.presentation + student.mid + student.final %}
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-gray-900">{{ student.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span
+                                class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ student.school_id }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                            {{ "%.2f"|format(q_avg) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600 font-mono">
+                            {{ "%.2f"|format(total) }} / 100
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if total >= 40 %}
+                            <span
+                                class="px-3 py-1 text-xs font-bold bg-green-100 text-green-700 rounded-full">PASSED</span>
+                            {% else %}
+                            <span class="px-3 py-1 text-xs font-bold bg-red-100 text-red-700 rounded-full">FAILED</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{{ url_for('grading', student_id=student.id) }}"
+                                class="text-indigo-600 hover:text-indigo-900 px-4 py-2 border border-indigo-200 rounded-lg hover:bg-indigo-50">Edit
+                                Marks</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function sendGradesSMS() {
+        if (!confirm("Are you sure you want to send the final grade SMS to ALL students now? Note: Ensure marks are finalized first.")) {
+            return;
+        }
+
+        const btn = document.getElementById('btn-send-grades');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Sending SMS...</span>';
+        btn.classList.add('opacity-75', 'cursor-wait');
+
+        fetch("{{ url_for('action_send_grades_sms') }}", {
+            method: "POST",
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Success: " + data.message);
+                } else {
+                    alert("Error: " + data.message);
+                }
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-wait');
+            })
+            .catch(err => {
+                alert("Failed to communicate with server.");
+                console.error(err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-wait');
+            });
+    }
+</script>
+{% endblock %}

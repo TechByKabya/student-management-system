@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Welcome back, Admin!</h1>
+            <p class="text-gray-500 mt-1">Here's your smart attendance overview for today.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('enroll') }}"
+                class="inline-flex items-center px-5 py-2.5 bg-indigo-600 border border-transparent rounded-lg font-semibold text-white shadow hover:bg-indigo-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 transform hover:-translate-y-0.5">
+                <i class="fa-solid fa-user-plus mr-2 text-sm"></i> Enroll Student
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Stat Card 1 -->
+        <div
+            class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-l-4 border-blue-500 bg-white">
+            <div
+                class="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-blue-50 opacity-50 group-hover:scale-150 transition-transform duration-700 ease-out">
+            </div>
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-sm font-bold text-gray-400 uppercase tracking-widest">Total Students</p>
+                    <p class="mt-2 text-5xl font-black text-blue-900">{{ total }}</p>
+                </div>
+                <div
+                    class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-3xl shadow-sm transform group-hover:rotate-12 transition-transform">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+            </div>
+            <div
+                class="mt-6 flex items-center text-xs text-blue-600 font-medium relative z-10 bg-blue-50 inline-block px-3 py-1 rounded-full w-max">
+                <i class="fa-solid fa-microchip mr-2 text-[10px]"></i> Active in C Memory
+            </div>
+        </div>
+
+        <!-- Stat Card 2 -->
+        <div
+            class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-l-4 border-emerald-500 bg-white">
+            <div
+                class="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-emerald-50 opacity-50 group-hover:scale-150 transition-transform duration-700 ease-out">
+            </div>
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-sm font-bold text-gray-400 uppercase tracking-widest">Present Today</p>
+                    <p class="mt-2 text-5xl font-black text-emerald-900">{{ today }}</p>
+                </div>
+                <div
+                    class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 text-3xl shadow-sm transform group-hover:rotate-12 transition-transform">
+                    <i class="fa-solid fa-users-viewfinder"></i>
+                </div>
+            </div>
+            <div
+                class="mt-6 flex items-center text-xs text-emerald-600 font-medium relative z-10 bg-emerald-50 inline-block px-3 py-1 rounded-full w-max">
+                <i class="fa-solid fa-calendar-check mr-2 text-[10px]"></i> Scanned via ESP32 today
+            </div>
+        </div>
+
+        <!-- Daily Status Card -->
+        <div id="portal-status-card"
+            class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:shadow-xl transition-all duration-300 {% if daily_status == 1 %}border-l-4 border-emerald-500 bg-white{% else %}border-l-4 border-red-500 bg-white{% endif %} flex flex-col justify-between">
+            <div class="flex items-center justify-between relative z-10 mb-4">
+                <div>
+                    <p class="text-sm font-bold text-gray-400 uppercase tracking-widest">Portal Status</p>
+                    <p id="portal-status-label"
+                        class="mt-2 text-3xl font-black {% if daily_status == 1 %}text-emerald-600{% else %}text-red-500{% endif %}">
+                        {% if daily_status == 1 %}OPEN{% else %}CLOSED{% endif %}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">Scanner acceptance state</p>
+                </div>
+                <div
+                    class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm transform group-hover:rotate-12 transition-transform {% if daily_status == 1 %}bg-emerald-100 text-emerald-600{% else %}bg-red-100 text-red-500{% endif %}">
+                    <i id="portal-status-icon"
+                        class="fa-solid {% if daily_status == 1 %}fa-door-open{% else %}fa-door-closed{% endif %}"></i>
+                </div>
+            </div>
+            <form id="portal-toggle-form" action="{{ url_for('action_toggle_attendance') }}" method="POST"
+                class="relative z-10 mt-auto">
+                <button id="portal-toggle-btn" type="submit"
+                    class="w-full py-2.5 rounded-xl font-bold text-sm text-white shadow-md transition-all {% if daily_status == 1 %}bg-red-500 hover:bg-red-600{% else %}bg-emerald-500 hover:bg-emerald-600{% endif %}">
+                    {% if daily_status == 1 %}Close Portal{% else %}Open Portal{% endif %}
+                </button>
+            </form>
+        </div>
+
+        <!-- Instruction Card -->
+        <div id="esp32-card"
+            class="bg-gradient-to-br from-indigo-800 to-purple-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden flex flex-col justify-between transition-colors duration-500">
+            <div class="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
+                <i id="esp32-icon-bg" class="fa-solid fa-wifi text-9xl absolute -right-4 -bottom-4 animate-pulse"></i>
+            </div>
+            <div class="relative z-10">
+                <div class="flex items-center mb-4">
+                    <div id="esp32-icon-box"
+                        class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mr-3 backdrop-blur-sm transition-colors duration-500">
+                        <i class="fa-solid fa-microchip text-lg"></i>
+                    </div>
+                    <h3 class="text-xl font-bold">ESP32 Integration</h3>
+                </div>
+                <p class="text-indigo-200 text-sm leading-relaxed mb-4">
+                    The backend API is currently active. The ESP32 device should poll <code>/api/esp32/status</code>
+                    every 2 seconds.
+                </p>
+            </div>
+            <div class="relative z-10 mt-auto flex justify-between items-center">
+                <div id="esp32-badge"
+                    class="flex items-center text-xs font-mono bg-black/40 p-2.5 rounded-lg w-max border border-white/10 shadow-inner transition-colors duration-300">
+                    <span class="relative flex h-3 w-3 mr-3">
+                        <span id="esp32-ping-anim"
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span id="esp32-dot" class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span id="esp32-text">CHECKING...</span>
+                </div>
+                <div class="text-[10px] text-gray-400 font-mono" id="esp32-last-seen-text"></div>
+            </div>
+        </div>
+
+        <!-- AI Neural Monitor Card -->
+        <a href="{{ url_for('ai_dashboard') }}"
+            class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-l-4 border-purple-500 bg-gray-900 flex flex-col justify-between cursor-pointer">
+            <div class="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
+                <i class="fa-solid fa-brain text-9xl absolute -right-4 -bottom-4 animate-pulse text-purple-400"></i>
+            </div>
+            <div class="flex items-center justify-between relative z-10 mb-4">
+                <div>
+                    <p class="text-sm font-bold text-gray-400 uppercase tracking-widest">Proxy Detection</p>
+                    <p class="mt-2 text-3xl font-black text-purple-400">AI Monitor</p>
+                    <p class="text-xs text-gray-300 mt-1">Live Neural Feed</p>
+                </div>
+                <div
+                    class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm transform group-hover:rotate-12 transition-transform bg-purple-900/50 text-purple-400">
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+            </div>
+            <div class="relative z-10 mt-auto text-xs font-mono bg-black/40 p-2.5 rounded-lg w-full text-center border border-white/10 text-white group-hover:bg-purple-600 transition-colors">
+                OPEN VIRTUAL BRAIN 🧠
+            </div>
+        </a>
+
+        <!-- SMS Custom Notice Card -->
+        <div
+            class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-l-4 border-purple-500 bg-white md:col-span-2 lg:col-span-3 flex flex-col md:flex-row gap-6 items-start">
+            <div
+                class="flex-shrink-0 w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 text-3xl shadow-sm">
+                <i class="fa-solid fa-bullhorn"></i>
+            </div>
+
+            <div class="flex-grow w-full">
+                <h3 class="text-xl font-bold text-gray-900 mb-1">Broadcast Notice / Alert</h3>
+                <p class="text-sm text-gray-500 mb-4">Send a custom SMS to all {{ total }} registered students.</p>
+
+                <textarea id="notice-text" rows="3"
+                    class="w-full text-sm border-gray-300 rounded-xl shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-200 focus:ring-opacity-50 resize-none mb-3 p-3 transition-colors"
+                    placeholder="Type your important announcement here..."></textarea>
+
+                <div
+                    class="flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <div class="flex items-center gap-4 text-xs font-mono text-gray-600">
+                        <div><i class="fa-solid fa-text-width mr-1 text-gray-400"></i> Characters: <strong
+                                id="char-count" class="text-gray-900">0</strong></div>
+                        <div><i class="fa-solid fa-envelope mr-1 text-gray-400"></i> SMS Parts: <strong id="sms-parts"
+                                class="text-purple-600">1</strong></div>
+                        <div><i class="fa-solid fa-coins mr-1 text-gray-400"></i> Est. Cost: <strong id="sms-cost"
+                                class="text-emerald-600">0.00 ৳</strong> <span
+                                class="text-[10px] text-gray-400">(@0.35/70ch)</span></div>
+                    </div>
+
+                    <button id="btn-send-notice" onclick="sendCustomNotice()"
+                        class="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-nowrap">
+                        <i class="fa-solid fa-paper-plane mr-1.5"></i> Broadcast Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</div>
+
+
+
+<!-- ===== TOAST NOTIFICATION ===== -->
+<div id="toast-notification"
+    class="hidden fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-white text-sm font-semibold max-w-sm transition-all duration-300">
+    <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
+    <span id="toast-message"></span>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updatePortalStatusCard(isOpen) {
+        const card = document.getElementById('portal-status-card');
+        const label = document.getElementById('portal-status-label');
+        const icon = document.getElementById('portal-status-icon');
+        const btn = document.getElementById('portal-toggle-btn');
+        if (!card) return;
+
+        if (isOpen) {
+            card.className = card.className.replace(/border-l-4 border-\w+-500/g, '').trim();
+            card.classList.add('border-l-4', 'border-emerald-500');
+            label.textContent = 'OPEN';
+            label.className = 'mt-2 text-3xl font-black text-emerald-600';
+            icon.className = 'fa-solid fa-door-open';
+            icon.parentElement.className = 'w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm transform group-hover:rotate-12 transition-transform bg-emerald-100 text-emerald-600';
+            btn.textContent = 'Close Portal';
+            btn.className = btn.className.replace(/bg-\w+-500 hover:bg-\w+-600/g, '').trim();
+            btn.classList.add('bg-red-500', 'hover:bg-red-600');
+        } else {
+            card.className = card.className.replace(/border-l-4 border-\w+-500/g, '').trim();
+            card.classList.add('border-l-4', 'border-red-500');
+            label.textContent = 'CLOSED';
+            label.className = 'mt-2 text-3xl font-black text-red-500';
+            icon.className = 'fa-solid fa-door-closed';
+            icon.parentElement.className = 'w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm transform group-hover:rotate-12 transition-transform bg-red-100 text-red-500';
+            btn.textContent = 'Open Portal';
+            btn.className = btn.className.replace(/bg-\w+-500 hover:bg-\w+-600/g, '').trim();
+            btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+        }
+    }
+
+    let offlineMissCount = 0;
+    const OFFLINE_THRESHOLD_SEC = 12;  // Allow 5+ missed pings before going offline
+    const OFFLINE_MISS_TRIGGER = 3;    // Require 3 consecutive misses before showing OFFLINE
+
+    function pollDashboard() {
+        fetch('/api/system/status')
+            .then(r => r.json())
+            .then(data => {
+                // === Portal Status Card ===
+                updatePortalStatusCard(data.daily_status === 1);
+
+                // === ESP32 Connection Card ===
+                const now = data.server_time || (Date.now() / 1000);
+                const lastSeen = parseFloat(data.esp32_last_seen) || 0;
+                const diff = now - lastSeen;
+
+                const card = document.getElementById('esp32-card');
+                const badge = document.getElementById('esp32-badge');
+                const dot = document.getElementById('esp32-dot');
+                const anim = document.getElementById('esp32-ping-anim');
+                const text = document.getElementById('esp32-text');
+                const iconBox = document.getElementById('esp32-icon-box');
+                const seenText = document.getElementById('esp32-last-seen-text');
+
+                const isRecentlySeen = diff <= OFFLINE_THRESHOLD_SEC && lastSeen > 0;
+                if (isRecentlySeen) {
+                    offlineMissCount = 0; // reset miss counter
+                    card.className = "bg-gradient-to-br from-emerald-800 to-teal-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden flex flex-col justify-between transition-colors duration-500";
+                    badge.className = "flex items-center text-xs font-mono bg-black/40 p-2.5 rounded-lg w-max border border-emerald-400/30 shadow-inner transition-colors duration-300";
+                    dot.className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
+                    anim.style.display = "block";
+                    anim.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                    text.innerText = "ONLINE & ACTIVE";
+                    iconBox.className = "w-10 h-10 rounded-full bg-emerald-400/30 flex items-center justify-center mr-3 backdrop-blur-sm transition-colors duration-500";
+                    seenText.innerText = diff < 3 ? "Just now" : Math.floor(diff) + "s ago";
+                } else {
+                    offlineMissCount++;
+                    // Only flip to OFFLINE after 3 consecutive misses — prevents single-packet flicker
+                    if (offlineMissCount >= OFFLINE_MISS_TRIGGER) {
+                        card.className = "bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden flex flex-col justify-between transition-colors duration-500";
+                        badge.className = "flex items-center text-xs font-mono bg-black/40 p-2.5 rounded-lg w-max border border-red-500/30 shadow-inner transition-colors duration-300";
+                        dot.className = "relative inline-flex rounded-full h-3 w-3 bg-red-500";
+                        anim.style.display = "none";
+                        text.innerText = "OFFLINE";
+                        iconBox.className = "w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center mr-3 backdrop-blur-sm transition-colors duration-500 text-red-300";
+                        seenText.innerText = lastSeen > 0 ? Math.floor(diff) + "s ago" : "Never seen";
+                    }
+                    // If < OFFLINE_MISS_TRIGGER misses, keep showing as online (jitter protection)
+                }
+            })
+            .catch(e => console.error("Error polling system status", e));
+    }
+
+    // Intercept Portal toggle form to submit via AJAX for instant UI feedback
+    document.getElementById('portal-toggle-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetch(this.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(data => {
+                updatePortalStatusCard(data.new_status === 1);
+            })
+            .catch(() => { /* fallback: let page reload */ this.submit(); });
+    });
+
+
+
+    function showToast(message, type) {
+        const toast = document.getElementById('toast-notification');
+        const icon = document.getElementById('toast-icon');
+        const msg = document.getElementById('toast-message');
+
+        msg.textContent = message;
+        toast.className = toast.className.replace(/bg-\S+/g, '').trim();
+
+        if (type === 'success') {
+            toast.classList.add('bg-emerald-600');
+            icon.className = 'fa-solid fa-check-circle text-lg';
+        } else {
+            toast.classList.add('bg-red-600');
+            icon.className = 'fa-solid fa-circle-xmark text-lg';
+        }
+
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 4000);
+    }
+
+    // --- Notice SMS Live Calculator Logic ---
+    const noticeInput = document.getElementById('notice-text');
+    const charCountEl = document.getElementById('char-count');
+    const smsPartsEl = document.getElementById('sms-parts');
+    const smsCostEl = document.getElementById('sms-cost');
+    const COST_PER_PART = 0.35;
+    const totalStudents = parseInt("{{ total|default(0) }}", 10);
+
+    if (noticeInput) {
+        noticeInput.addEventListener('input', function () {
+            const length = this.value.length;
+            charCountEl.textContent = length;
+
+            // Standard GSM 7-bit math for multi-part (approx)
+            // 1 part = 70 chars (as requested by user constraints for BulkSMSBD)
+            let parts = 0;
+            if (length === 0) {
+                parts = 1; // Base cost multiplier ready
+            } else {
+                parts = Math.ceil(length / 70);
+            }
+
+            smsPartsEl.textContent = parts;
+
+            // Calculate total cost for ALL students
+            const totalCost = parts * COST_PER_PART * totalStudents;
+            smsCostEl.textContent = totalCost.toFixed(2) + ' ৳';
+        });
+    }
+
+    function sendCustomNotice() {
+        const message = noticeInput.value.trim();
+        if (!message) {
+            showToast("Cannot send an empty message", "error");
+            return;
+        }
+
+        const estCost = smsCostEl.textContent;
+        if (!confirm(`Are you sure you want to broadcast this message to ${totalStudents} students? Estimated cost is ${estCost}.`)) {
+            return;
+        }
+
+        const btn = document.getElementById('btn-send-notice');
+        const origText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending...';
+        btn.classList.add('opacity-75', 'cursor-wait');
+
+        fetch('/action/send_custom_notice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ message: message })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    noticeInput.value = ''; // clear input
+                    noticeInput.dispatchEvent(new Event('input')); // reset calculator
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                showToast('Network error while requesting broadcast.', 'error');
+                console.error(err);
+            })
+            .finally(() => {
+                btn.innerHTML = origText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-wait');
+            });
+    }
+
+
+    setInterval(pollDashboard, 2000);
+    pollDashboard();
+</script>
+{% endblock %}

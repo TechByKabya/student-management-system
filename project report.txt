@@ -1,0 +1,91 @@
+================================================================================
+                           PROJECT REPORT
+================================================================================
+
+PROJECT TITLE: Smart Student Management & Attendance System
+
+COURSE DETAILS:
+Course Name: Programming and Problem Solving Lab
+Semester: Spring 2026
+Section: 70s (s2)
+
+SUBMITTED TO:
+MD Taufik Hasan
+Lecturer
+
+SUBMITTED BY (TEAM MEMBERS):
+1. 253-15-158 — Ayan Majumder
+2. 252-15-254 — Kabya Ghosh 
+3. 253-15-549 — MD Mostafezur Rahaman Nayem
+4. 252-15-522 — Soumitro Day
+5. 253-15-486 — MD. Masudur Rahman
+
+================================================================================
+
+1. ABSTRACT
+--------------------------------------------------------------------------------
+The Smart Student Management & Attendance System is an Internet of Things (IoT) based project designed to automate the academic attendance process. Traditional attendance systems are manual, time-consuming, and prone to human error. This project provides a robust solution by integrating an ESP32 hardware scanner (utilizing Fingerprint and RFID technology) with a Python (Flask) web portal. A key innovation in this project is the integration of a custom-built, high-speed C-language memory engine that interacts directly with the server's RAM, providing instantaneous student verification without database lag. The system also features an automated SMS notification system for parents and an SD-card backed offline mode for resilience against network failures.
+
+2. INTRODUCTION & PROBLEM STATEMENT
+--------------------------------------------------------------------------------
+In modern educational institutions, tracking student attendance and managing grades efficiently is critical. Manual roll calls consume valuable lecture time. Existing digital systems often suffer from high latency when multiple devices ping a standard database simultaneously. Furthermore, these systems completely fail if the local network drops. 
+
+Our objective was to design a system that solves these issues:
+- Automate attendance via biometric and RFID scanning.
+- Ensure zero-latency responses for the hardware by optimizing server memory.
+- Guarantee data safety even if the Wi-Fi network goes down.
+- Provide teachers with a centralized dashboard for grading and student management.
+
+3. SYSTEM ARCHITECTURE
+--------------------------------------------------------------------------------
+The project architecture is built on a three-tier model:
+
+A. The Hardware Node (Client): An ESP32 microcontroller that interfaces with physical sensors to collect biometric and RFID data.
+B. The Web Portal (Application Layer): A Python Flask server that provides the Graphical User Interface (GUI), handles the SQLite database, and processes background tasks like SMS APIs.
+C. The Core Memory Engine (Optimization Layer): A compiled C library (Shared Object) loaded by Python via `ctypes`. It maintains a synchronized struct array in the RAM for high-speed student lookups.
+
+4. HARDWARE IMPLEMENTATION
+--------------------------------------------------------------------------------
+The physical scanner unit is stationed at the classroom entrance. It is built using:
+- Microcontroller: ESP32 (Handles Wi-Fi connectivity and logic).
+- Biometric Sensor: Optical Fingerprint Scanner (For secure identification).
+- Proximity Sensor: PN532 RFID Reader (For fast ID card tapping).
+- Display: 128x64 OLED Screen (Provides real-time feedback and device status).
+- Storage: MicroSD Card Module (For caching whitelists and offline logs).
+- Indicators: Buzzer and LEDs (For visual and auditory success/error alerts).
+
+5. SOFTWARE IMPLEMENTATION
+--------------------------------------------------------------------------------
+5.1 The Python Web Server (Backend & UI)
+The web portal is built using the Flask framework. It features:
+- Administrator Login: Secure teacher access.
+- Student Enrollment: Interface to add students, link RFID tags/fingerprints, and upload photos.
+- Grading Dashboard: Allows teachers to input quiz, presentation, and final exam marks.
+- Database: SQLite handles persistent storage of all records.
+
+5.2 The High-Speed C Engine (Performance Optimization)
+To eliminate latency during mass scanning, we wrote a core engine in C (`student_core.c`). 
+- When the server boots, Python loads the SQLite database and pushes the data into the C engine.
+- The C engine stores students in a fixed-size `struct` array directly in RAM.
+- When an RFID tag is scanned, Python queries the C engine, which uses `strcmp()` to perform an instant string match.
+- This hybrid Python-C approach (using Python's `ctypes` library) gives us the rapid development speed of Python and the blazing execution speed of C.
+
+6. KEY FEATURES & FUNCTIONALITIES
+--------------------------------------------------------------------------------
+6.1 Automated SMS Notifications
+The system runs background threads to evaluate daily attendance. If the portal is manually "closed" by the teacher at the end of the day, the system cross-references enrolled students against the day's attendance logs and automatically sends an absence SMS to the parents of any student who did not scan in.
+
+6.2 Offline Resilience & Batch Sync
+If the Wi-Fi router loses power, the system does not halt. 
+- The ESP32 proactively downloads a "whitelist" of enrolled students to its SD card.
+- During an outage, it checks the scanned ID against the SD card whitelist.
+- If verified, it logs the attendance timestamp locally.
+- Once the Wi-Fi connection is restored, a FreeRTOS background task on the ESP32 automatically bundles the saved logs into a JSON array and batch-syncs them to the server.
+
+7. CONCLUSION
+--------------------------------------------------------------------------------
+The Smart Student Management & Attendance System successfully demonstrates how integrating low-level programming (C) with high-level web frameworks (Python) and IoT hardware (ESP32) can yield a commercial-grade product. It eliminates the manual burden of attendance, keeps parents informed in real-time, and guarantees high availability through its offline caching mechanisms. 
+
+================================================================================
+                          END OF REPORT
+================================================================================

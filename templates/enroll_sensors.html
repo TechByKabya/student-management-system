@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Sensor Configuration</h2>
+            <p class="text-gray-500 mt-2 text-lg">Step 2: Assign biometric or RFID metadata to <span
+                    class="font-bold text-indigo-600">{{ student.name }}</span>.</p>
+        </div>
+        <a href="{{ url_for('students') }}" class="text-gray-500 hover:text-indigo-600 transition-colors">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back to Directory
+        </a>
+    </div>
+
+    <!-- Active Enrollment Alert Banner -->
+    <div id="enrollment-banner"
+        class="hidden mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <i class="fa-solid fa-spinner fa-spin text-yellow-600 mt-0.5"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-bold text-yellow-800" id="banner-title">ESP32 Waiting for Scan...</h3>
+                <div class="mt-2 text-sm text-yellow-700">
+                    <p>The backend has instructed the ESP32 to enter registration mode. Please place the sensor on the
+                        device now.</p>
+                </div>
+                <div class="mt-4 border-t border-yellow-200 pt-3">
+                    <button type="button" onclick="cancelEnrollment()"
+                        class="text-sm font-medium text-yellow-800 hover:text-yellow-600 underline">Cancel
+                        Registration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+        <!-- Fingerprint Card -->
+        <div
+            class="glass-panel p-8 rounded-2xl shadow-lg border-2 {% if student.fingerprint_id %}border-green-200{% else %}border-gray-200{% endif %} overflow-hidden relative group">
+            <div
+                class="absolute top-0 right-0 p-4 text-4xl opacity-10 text-indigo-900 transform group-hover:scale-125 transition-transform duration-500">
+                <i class="fa-solid fa-fingerprint"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Fingerprint Scanner</h3>
+            <p class="text-sm text-gray-500 mb-6 h-10">Use the ESP32 optical sensor to map a biometric template to this
+                user.</p>
+
+            <div
+                class="mb-8 flex items-center justify-center py-6 bg-gray-50 rounded-xl border border-gray-100 font-mono text-center">
+                {% if student.fingerprint_id and student.fingerprint_id > 0 %}
+                <span class="text-green-600 font-bold text-xl"><i class="fa-solid fa-check-circle mr-2"></i> Assigned
+                    ID: {{ student.fingerprint_id }}</span>
+                {% else %}
+                <span class="text-gray-400 text-lg">No template assigned</span>
+                {% endif %}
+            </div>
+
+            <button onclick="triggerEnrollment('fingerprint')"
+                class="w-full flex justify-center items-center py-3 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5"
+                id="btn-fingerprint">
+                <i class="fa-solid fa-fingerprint mr-2"></i> Trigger Fingerprint Registration
+            </button>
+        </div>
+
+        <!-- RFID Card -->
+        <div
+            class="glass-panel p-8 rounded-2xl shadow-lg border-2 {% if student.rfid_uid %}border-green-200{% else %}border-gray-200{% endif %} overflow-hidden relative group">
+            <div
+                class="absolute top-0 right-0 p-4 text-4xl opacity-10 text-purple-900 transform group-hover:scale-125 transition-transform duration-500">
+                <i class="fa-solid fa-id-badge"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-gray-900 mb-2">RFID Card/Badge</h3>
+            <p class="text-sm text-gray-500 mb-6 h-10">Scan an RFID tag via the ESP32 RC522 module to link the unique
+                identifier.</p>
+
+            <div
+                class="mb-8 flex items-center justify-center py-6 bg-gray-50 rounded-xl border border-gray-100 font-mono text-center">
+                {% if student.rfid_uid and student.rfid_uid != '' %}
+                <span class="text-green-600 font-bold text-xl"><i class="fa-solid fa-check-circle mr-2"></i> UID: {{
+                    student.rfid_uid }}</span>
+                {% else %}
+                <span class="text-gray-400 text-lg">No UID assigned</span>
+                {% endif %}
+            </div>
+
+            <button onclick="triggerEnrollment('rfid')"
+                class="w-full flex justify-center items-center py-3 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 transition-all transform hover:-translate-y-0.5"
+                id="btn-rfid">
+                <i class="fa-solid fa-wifi mr-2"></i> Trigger RFID Registration
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const studentId = parseInt("{{ student.id }}");
+    const banner = document.getElementById('enrollment-banner');
+
+    // Check initial status from backend rendered template (incase page reloaded mid-enrollment)
+    const initialMode = "{{ status.mode }}";
+    const initialAssignId = "{{ status.assign_id }}";
+
+    if (initialMode !== 'attendance' && parseInt(initialAssignId) === studentId) {
+        showBanner(initialMode);
+        startPolling();
+    }
+
+    function triggerEnrollment(sensorType) {
+        fetch("{{ url_for('trigger_enrollment') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sensor: sensorType, student_id: studentId })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showBanner(data.mode);
+                    startPolling(); // Start polling to watch for it to return to 'attendance'
+                }
+            });
+    }
+
+    function cancelEnrollment() {
+        fetch("{{ url_for('cancel_enrollment') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    hideBanner();
+                }
+            });
+    }
+
+    function showBanner(mode) {
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+        const title = document.getElementById('banner-title');
+        title.innerText = mode === 'enroll_fingerprint' ? 'ESP32 Waiting for Fingerprint...' : 'ESP32 Waiting for RFID Tag...';
+
+        // Disable buttons
+        document.getElementById('btn-fingerprint').disabled = true;
+        document.getElementById('btn-rfid').disabled = true;
+        document.getElementById('btn-fingerprint').classList.add('opacity-50', 'cursor-not-allowed');
+        document.getElementById('btn-rfid').classList.add('opacity-50', 'cursor-not-allowed');
+    }
+
+    function hideBanner() {
+        banner.classList.add('hidden');
+        banner.classList.remove('flex');
+
+        // Re-enable buttons
+        document.getElementById('btn-fingerprint').disabled = false;
+        document.getElementById('btn-rfid').disabled = false;
+        document.getElementById('btn-fingerprint').classList.remove('opacity-50', 'cursor-not-allowed');
+        document.getElementById('btn-rfid').classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    let pollInterval;
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+
+        // Poll the ESP32 status endpoint every 2 seconds
+        pollInterval = setInterval(() => {
+            fetch("{{ url_for('esp32_status_check') }}")
+                .then(res => res.json())
+                .then(data => {
+                    // If backend switched back to attendance mode, the enrollment succeeded (or was cancelled elsewhere)
+                    if (data.mode === 'attendance') {
+                        clearInterval(pollInterval);
+                        // Refresh the page to show the new assigned IDs!
+                        window.location.reload();
+                    }
+                })
+                .catch(console.error);
+        }, 2000);
+    }
+</script>
+{% endblock %}

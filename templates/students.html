@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Student Directory</h2>
+            <p class="text-gray-500 mt-1">Manage and view all enrolled student records.</p>
+        </div>
+        <div class="flex items-center gap-4 w-full md:w-auto">
+            <form action="{{ url_for('students') }}" method="GET" class="relative flex-1 md:w-64">
+                <input type="text" name="search" value="{{ search_q }}" placeholder="Search by Roll No..."
+                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white/50">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </div>
+            </form>
+            <button onclick="generatePDFReport()"
+                class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-semibold shadow-sm hover:bg-indigo-100 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 transform hover:-translate-y-0.5 shrink-0 print-hidden whitespace-nowrap">
+                <i class="fa-solid fa-file-pdf mr-2"></i> Download PDF
+            </button>
+            <a href="{{ url_for('enroll') }}"
+                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-white shadow-sm hover:bg-indigo-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 transform hover:-translate-y-0.5 shrink-0 print-hidden">
+                <i class="fa-solid fa-plus mr-2 text-sm"></i> Add New
+            </a>
+        </div>
+    </div>
+
+    <div class="glass-panel overflow-hidden rounded-2xl shadow-lg border border-gray-200">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50/50">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Photo
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name &
+                            Phone
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">School
+                            ID (Roll)</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            Fingerprint Template</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">RFID
+                            Tag</th>
+                        <th scope="col"
+                            class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white/80 divide-y divide-gray-200">
+                    {% for student in students %}
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                {% if student.photo_path %}
+                                <img class="h-10 w-10 rounded-full object-cover border-2 border-indigo-100 shadow-sm"
+                                    src="{{ url_for('static', filename=student.photo_path) }}" alt="{{ student.name }}">
+                                {% else %}
+                                <div
+                                    class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 border-2 border-indigo-200 shadow-sm">
+                                    <i class="fa-solid fa-user-graduate"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                {{ student.name }}
+                                {% if student.is_blacklisted %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
+                                    <i class="fa-solid fa-lock mr-1"></i>BLACKLISTED
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-indigo-600 font-medium">{{ student.phone }}</div>
+                            <div class="text-[10px] text-gray-400">DB ID: {{ student.id }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span
+                                class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ student.school_id }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                            {% if student.fingerprint_id and student.fingerprint_id > 0 %}
+                            <span class="text-emerald-600 font-bold"><i class="fa-solid fa-check-circle mr-1"></i> ID {{
+                                student.fingerprint_id }}</span>
+                            {% else %}
+                            <span class="text-gray-400"><i class="fa-solid fa-xmark-circle mr-1"></i> None</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                            {% if student.rfid_uid and student.rfid_uid != '' %}
+                            <span class="text-emerald-600 font-bold"><i class="fa-solid fa-wifi mr-1"></i> {{
+                                student.rfid_uid }}</span>
+                            {% else %}
+                            <span class="text-gray-400"><i class="fa-solid fa-xmark-circle mr-1"></i> None</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end space-x-2">
+                                {% if student.is_blacklisted %}
+                                <button onclick="whitelistStudent({{ student.id }})"
+                                    class="text-emerald-600 hover:text-emerald-900 px-3 py-1 rounded-md hover:bg-emerald-50 transition-colors font-bold">
+                                    <i class="fa-solid fa-unlock mr-1"></i>Whitelist
+                                </button>
+                                {% endif %}
+                                <a href="{{ url_for('enroll_sensors', student_id=student.id) }}"
+                                    class="text-indigo-600 hover:text-indigo-900 px-3 py-1 rounded-md hover:bg-indigo-50 transition-colors">Setup
+                                    Sensors</a>
+                                <form action="{{ url_for('delete_student_route', student_id=student.id) }}"
+                                    method="POST"
+                                    onsubmit="return confirm('Are you sure you want to delete this student entirely, including their attendance records? This cannot be undone.');">
+                                    <button type="submit"
+                                        class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                        title="Delete Student">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            <i class="fa-solid fa-box-open text-4xl mb-4 text-gray-300"></i>
+                            <p class="text-lg font-medium text-gray-900">No students found</p>
+                            <p class="text-sm mt-1 mb-4">Get started by enrolling a new student.</p>
+                            <a href="{{ url_for('enroll') }}"
+                                class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors font-medium">Create
+                                Student</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function generatePDFReport() {
+        const container = document.querySelector('.glass-panel'); // The table wrapper
+        if (!container) return;
+
+        // Temporarily hide elements not meant for printing
+        const hideElements = document.querySelectorAll('.print-hidden');
+        hideElements.forEach(el => el.style.display = 'none');
+
+        // Add a temporary title for the PDF
+        const titleContainer = document.createElement('div');
+        titleContainer.className = 'text-center mb-8 pb-4 border-b-2 border-gray-200';
+        const today = new Date().toLocaleDateString();
+        titleContainer.innerHTML = `
+            <h1 style="font-size: 24pt; font-weight: bold; color: #4F46E5;">Team X Student Directory</h1>
+            <p style="font-size: 14pt; color: #6B7280; margin-top: 8px;">Generated: ${today}</p>
+        `;
+        container.insertBefore(titleContainer, container.firstChild);
+
+        const opt = {
+            margin: [15, 15, 15, 15],
+            filename: 'Student_Directory.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+
+        const wrapper = document.createElement('div');
+        wrapper.style.backgroundColor = '#ffffff';
+        wrapper.style.padding = '20px';
+        wrapper.appendChild(container.cloneNode(true));
+
+        html2pdf().set(opt).from(wrapper).save().then(() => {
+            hideElements.forEach(el => el.style.display = '');
+        });
+    }
+
+    function whitelistStudent(studentId) {
+        if (!confirm('Are you sure you want to restore this student\'s access?')) return;
+        
+        fetch(`/action/whitelist_student/${studentId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to whitelist student');
+        });
+    }
+</script>
+<style>
+    @media print {
+        body {
+            background-color: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        aside,
+        header,
+        #flash-container,
+        .print-hidden {
+            display: none !important;
+        }
+
+        main {
+            padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
+        }
+
+        .glass-panel {
+            background: none;
+            border: none;
+            box-shadow: none;
+        }
+    }
+</style>
+{% endblock %}

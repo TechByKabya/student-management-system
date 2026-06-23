@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIU Project Proposal - Smart SMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #09090b;
+      --panel: rgba(255, 255, 255, 0.03);
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.5);
+      --danger: #ef4444;
+      --success: #10b981;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-main: 'Outfit', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse at top right, rgba(37, 99, 235, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at bottom left, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+      color: var(--text);
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .ui-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .ui-header h1 {
+      font-size: 46px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+      letter-spacing: -1px;
+    }
+
+    .ui-header p {
+      color: var(--text-muted);
+      font-size: 18px;
+      font-weight: 300;
+    }
+
+    .controls {
+      max-width: 900px;
+      margin: 0 auto 40px;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 30px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #94a3b8;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .img-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .img-upload-card {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    .img-upload-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .img-upload-card label {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 12px;
+    }
+
+    .img-upload-card input[type=file] {
+      width: 100%;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .btn-generate {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 800;
+      font-family: var(--font-main);
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 8px 25px var(--accent-glow);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn-generate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 35px var(--accent-glow);
+    }
+
+    .preview-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ====== REPORT STYLES ====== */
+    #rpt {
+      background: #f8fafc;
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      color: #0f172a;
+    }
+
+    .pg {
+      width: 210mm;
+      height: 297mm;
+      padding: 25mm 20mm;
+      background: #fff;
+      position: relative;
+      box-sizing: border-box;
+      margin: 0 auto 30px auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pg-break {
+      page-break-before: always;
+    }
+
+    /* typography */
+    .title-main {
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      letter-spacing: -1.5px;
+      color: #020617;
+    }
+
+    .title-sub {
+      font-size: 20px;
+      font-weight: 500;
+      color: #2563eb;
+      line-height: 1.4;
+      margin-bottom: 30px;
+    }
+
+    .heading-1 {
+      font-size: 34px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 24px;
+      letter-spacing: -0.5px;
+    }
+
+    .heading-2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 30px 0 12px;
+    }
+
+    .paragraph {
+      font-size: 16px;
+      line-height: 1.8;
+      color: #334155;
+      margin-bottom: 20px;
+      font-weight: 400;
+    }
+
+    .paragraph-lead {
+      font-size: 18px;
+      line-height: 1.6;
+      color: #1e293b;
+      font-weight: 500;
+      margin-bottom: 24px;
+      border-left: 4px solid var(--accent);
+      padding-left: 16px;
+    }
+
+    .highlight-text {
+      font-weight: 700;
+      color: #2563eb;
+    }
+
+    /* Badges */
+    .badge-built {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #10b981;
+      color: white;
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+
+    /* Graphic Cards */
+    .story-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    }
+
+    .story-card.danger {
+      border-left: 6px solid #ef4444;
+      background: #fef2f2;
+    }
+
+    .story-card.success {
+      border-left: 6px solid #10b981;
+      background: #f0fdf4;
+    }
+
+    .story-card.info {
+      border-left: 6px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    .story-card.highlight {
+      border: 2px solid #8b5cf6;
+      background: #faf5ff;
+      box-shadow: 0 10px 20px rgba(139, 92, 246, 0.15);
+    }
+
+    .story-card h3 {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .story-card.danger h3 {
+      color: #991b1b;
+    }
+
+    .story-card.success h3 {
+      color: #065f46;
+    }
+
+    .story-card.info h3 {
+      color: #1e40af;
+    }
+
+    .story-card.highlight h3 {
+      color: #6d28d9;
+      font-size: 20px;
+    }
+
+    .story-card p {
+      font-size: 15px;
+      color: #475569;
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    /* Image Containers */
+    .hero-image {
+      width: 100%;
+      height: 400px;
+      background: #e2e8f0;
+      border-radius: 16px;
+      overflow: hidden;
+      margin: 30px 0;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      position: relative;
+    }
+
+    .hero-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .hero-image.contain img {
+      object-fit: contain;
+      background: #1e293b;
+    }
+
+    .hero-image .caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(4px);
+    }
+
+    .upload-placeholder {
+      width: 100%;
+      height: 350px;
+      background: #f1f5f9;
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 18px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .upload-placeholder img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* Diagram */
+    .diagram-box {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 30px;
+      margin: 24px 0;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .fnode {
+      flex: 1;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 12px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .fnode.blue {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .fnode.purple {
+      border-color: #8b5cf6;
+      background: #faf5ff;
+    }
+
+    .fnode.green {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .fnode h4 {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .fnode p {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .farrow {
+      font-size: 24px;
+      color: #94a3b8;
+      font-weight: 900;
+    }
+
+    /* Grid blocks */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .stat-box {
+      background: #0f172a;
+      color: white;
+      padding: 30px;
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 42px;
+      font-weight: 900;
+      color: #38bdf8;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Footer / Cover styling */
+    .cover-footer {
+      margin-top: auto;
+      padding-top: 30px;
+      border-top: 2px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      position: relative;
+      z-index: 2;
+    }
+
+    .cover-diu-logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: #020617;
+      letter-spacing: -0.5px;
+    }
+
+    /* Team Table */
+    .team-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+
+    .team-table th {
+      background: #0f172a;
+      color: white;
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .team-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 15px;
+      color: #1e293b;
+    }
+
+    .team-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .team-table .id-cell {
+      color: #3b82f6;
+      font-weight: 700;
+      font-family: monospace;
+      font-size: 14px;
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: 20mm;
+      right: 20mm;
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    /* Cover Background Pattern */
+    .cover-bg-image {
+      position: absolute;
+      top: 10%;
+      left: 0;
+      right: 0;
+      bottom: 10%;
+      background-image: url('device_transparent.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      opacity: 0.08;
+      /* Blended book cover style */
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Print Media */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      body {
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .ui-header,
+      .controls {
+        display: none !important;
+      }
+
+      .preview-wrap {
+        max-width: 100% !important;
+        margin: 0 !important;
+      }
+
+      #rpt {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+
+      .pg {
+        width: 100% !important;
+        height: 100vh !important;
+        padding: 15mm 20mm !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="ui-header">
+    <h1>Project Proposal Generator</h1>
+    <p>Generate a visual, story-driven pitch for the DIU Competition</p>
+  </div>
+
+  <div class="controls">
+    <div class="section-label">Upload Prototype Photos</div>
+    <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Upload your physical device photos below for the final
+      showcase page. Note: ensure your transparent device background photo is named <code>device_transparent.png</code>
+      and the classroom photo is named <code>class attendance.jpeg</code> in the same folder.</p>
+    <div class="img-grid">
+      <div class="img-upload-card">
+        <label>Physical Prototype Photo</label>
+        <input type="file" accept="image/*" onchange="previewUpload(event,'proto-1')">
+      </div>
+    </div>
+    <button class="btn-generate" onclick="window.print()">Export as PDF</button>
+  </div>
+
+  <div class="preview-wrap">
+    <div id="rpt">
+
+      <!-- PAGE 1: COVER -->
+      <div class="pg">
+        <div class="cover-bg-image"></div>
+        <div
+          style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; padding-top: 10px; z-index: 2; position: relative;">
+          <div style="margin-bottom: 20px;">
+            <div class="badge-built">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Fully Functional Prototype Built & Ready
+            </div>
+          </div>
+
+          <p
+            style="font-size: 16px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 15px;">
+            Project Proposal</p>
+          <h1 class="title-main" style="font-size: 42px;">Smart AI Edge Node for Academic Attendance</h1>
+          <h2 class="title-sub" style="font-size: 18px;">Solving DIU's manual roll calls, proxy attendance, and server
+            downtime with a plug-and-play biometric IoT device.</h2>
+
+          <div
+            style="margin-top: 5px; margin-bottom: 25px; background: #eff6ff; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb;">
+            <p style="font-size: 15px; color: #1e3a8a; margin: 0;"><strong>Project Showcase Website:</strong></p>
+            <a href="https://techbykabya.github.io/Smart-Attendance-System/" target="_blank"
+              style="color: #2563eb; font-weight: 600; text-decoration: underline; font-size: 14px; word-break: break-all;">
+              https://techbykabya.github.io/Smart-Attendance-System/
+            </a>
+          </div>
+
+          <div class="grid-2" style="margin-bottom: 25px;">
+            <div class="stat-box" style="padding: 20px;">
+              <div class="stat-val" style="font-size: 32px;">6000<span style="font-size:18px;">৳</span></div>
+              <div class="stat-label">Actual Built Cost</div>
+            </div>
+            <div class="stat-box" style="background: #2563eb; padding: 20px;">
+              <div class="stat-val" style="font-size: 32px;">&lt;1s</div>
+              <div class="stat-label">Scan Speed per Student</div>
+            </div>
+          </div>
+
+          <div>
+            <h4
+              style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 10px;">
+              Submitted By</h4>
+            <table class="team-table">
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Student ID</th>
+              </tr>
+              <tr>
+                <td><strong>Kabya Ghosh</strong></td>
+                <td>Team Leader & Lead Developer</td>
+                <td class="id-cell">252-15-254</td>
+              </tr>
+              <tr>
+                <td>MD Mostafezur Rahaman Nayem</td>
+                <td>System Architecture</td>
+                <td class="id-cell">253-15-549</td>
+              </tr>
+              <tr>
+                <td>MD. Masudur Rahman</td>
+                <td>Biometric Integration</td>
+                <td class="id-cell">253-15-486</td>
+              </tr>
+              <tr>
+                <td>Mubassher Alam</td>
+                <td>Hardware Design</td>
+                <td class="id-cell">242-15-856</td>
+              </tr>
+              <tr>
+                <td>Radowan Hossain</td>
+                <td>API Routing</td>
+                <td class="id-cell">242-35-136</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="cover-footer">
+          <div>
+            <div class="cover-diu-logo">Daffodil International University</div>
+            <p style="color: #64748b; font-size: 15px; font-weight: 500; margin-top: 4px;">Department of Computer
+              Science & Engineering</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 2: TABLE OF CONTENTS -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">Table of Contents</h1>
+        <p class="paragraph-lead">An overview of our already-built Smart Edge Node system.</p>
+
+        <div
+          style="margin-top: 30px; font-size: 18px; line-height: 2.5; background: #f8fafc; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0;">
+          <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px dotted #cbd5e1; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 700; color: #1e293b;">1. The Problem: Manual Attendance is Failing Us</span>
+            <span style="color: #64748b; font-weight: 600;">Page 3</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px dotted #cbd5e1; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 700; color: #1e293b;">2. The Solution: Smart Edge Node in Action</span>
+            <span style="color: #64748b; font-weight: 600;">Page 4</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px dotted #cbd5e1; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 700; color: #1e293b;">3. Closing the Gap: Automated SMS Feedback</span>
+            <span style="color: #64748b; font-weight: 600;">Page 5</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px dotted #cbd5e1; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 900; color: #2563eb;">4. Graphical Architecture Diagram</span>
+            <span style="color: #64748b; font-weight: 600;">Page 6</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px dotted #cbd5e1; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 900; color: #2563eb;">5. Core Innovation: TinyML AI Fraud Detection</span>
+            <span style="color: #64748b; font-weight: 600;">Page 7</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px dotted #cbd5e1; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 700; color: #1e293b;">6. 100% Offline Resilience & API Integration</span>
+            <span style="color: #64748b; font-weight: 600;">Page 8</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 16px; padding-bottom: 4px;">
+            <span style="font-weight: 700; color: #1e293b;">7. Real-World Physical Prototype Showroom</span>
+            <span style="color: #64748b; font-weight: 600;">Page 9</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center;">
+          <p style="font-size: 15px; color: #475569; font-weight: 500; font-style: italic;">Note: Every feature listed
+            in this report has been successfully implemented and tested in our working prototype.</p>
+        </div>
+
+        <div class="page-number">Page 2</div>
+      </div>
+
+      <!-- PAGE 3: THE PROBLEM -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">The Problem: Manual Attendance is Failing Us</h1>
+
+        <p class="paragraph-lead">At DIU, academic attendance relies on a system that is fundamentally slow, prone to
+          human error, and heavily dependent on continuous server uptime.</p>
+
+        <div class="story-card danger">
+          <h3>1. The Time Cost of Calling IDs</h3>
+          <p>In a standard classroom of 60 students, a teacher must open the portal, call out individual Student IDs,
+            and manually click "Present" or "Absent". This archaic process consumes <strong>10 to 15 minutes</strong> of
+            valuable lecture time every single session.</p>
+        </div>
+
+        <div class="story-card danger">
+          <h3>2. "DIU Server is Down"</h3>
+          <p>Teachers frequently encounter the frustrating reality of DIU server downtime or localized Wi-Fi outages.
+            When the portal won't load, attendance must be taken on paper and entered later—leading to double data entry
+            and frequent loss of records.</p>
+        </div>
+
+        <div class="story-card danger">
+          <h3>3. Proxy Attendance</h3>
+          <p>In large lecture halls, students easily respond for absent friends, inflating attendance metrics and
+            compromising academic integrity.</p>
+        </div>
+
+        <h2 class="heading-2">The Required Solution</h2>
+        <p class="paragraph">We need a solution that is instantaneous, immune to network failures, fraud-proof, and
+          cheap enough to deploy in every single DIU classroom without requiring a massive overhaul of the existing
+          university database.</p>
+        <div class="page-number">Page 3</div>
+      </div>
+
+      <!-- PAGE 4: THE SOLUTION IN ACTION -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">The Solution: Smart Edge Node</h1>
+        <p class="paragraph">We engineered a dedicated ESP32-based hardware node that sits on the teacher's desk.
+          Students simply tap their institutional ID card on the device as they enter. Attendance is logged instantly,
+          accompanied by a confirming beep and green LED flash.</p>
+
+        <div class="hero-image">
+          <img src="class attendance.jpeg" alt="Classroom Action">
+          <div class="caption">Real-world testing: Scanning student IDs autonomously during class entry.</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="story-card success">
+            <h3>Instantaneous Verification</h3>
+            <p>By utilizing an RFID interface (PN532), scanning a student ID takes less than 0.5 seconds. A 60-student
+              class is processed in under a minute as students walk through the door. Zero lecture time is lost.</p>
+          </div>
+          <div class="story-card success">
+            <h3>Automated Parent SMS</h3>
+            <p>The system automatically tracks missing students. The moment the teacher closes the session, SMS alerts
+              are immediately dispatched to the parents of absent students, keeping them informed instantly.</p>
+          </div>
+        </div>
+        <div class="page-number">Page 4</div>
+      </div>
+
+      <!-- PAGE 5: SMS FEEDBACK -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">Closing the Gap: Automated SMS Feedback</h1>
+        <p class="paragraph-lead">Parental communication is often delayed by weeks or months until report cards are
+          issued. Our system bridges this gap instantly using an automated background SMS dispatcher.</p>
+
+        <div class="grid-2" style="margin-top: 30px;">
+          <div class="story-card info"
+            style="background: white; border: 2px solid #2563eb; box-shadow: 0 10px 30px rgba(37,99,235,0.15); padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <h3 style="color: white; background: #2563eb; padding: 15px 20px; margin: 0; font-size: 16px;">💬 Parent's
+              Phone View</h3>
+            <div style="background: #f8fafc; padding: 25px; flex-grow: 1;">
+              <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <div
+                  style="width: 32px; height: 32px; background: #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: white;">
+                  DIU</div>
+                <div
+                  style="background: #e2e8f0; padding: 12px 16px; border-radius: 16px; border-top-left-radius: 4px; font-family: monospace; font-size: 14px; color: #334155; line-height: 1.5; max-width: 85%;">
+                  Dear Parent, your child Kabya Ghosh (ID: 252-15-254) was marked ABSENT today for CSE 114 class. Please
+                  contact the department if you have concerns.
+                </div>
+              </div>
+              <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 10px;">Delivered today at 11:45
+                AM</p>
+            </div>
+          </div>
+
+          <div>
+            <div class="story-card success" style="margin-bottom: 20px;">
+              <h3>Immediate Notification</h3>
+              <p>The moment the lecturer clicks "Close Session" on the dashboard, the backend script scans the
+                attendance logs against the enrolled student list. Within seconds, automated SMS messages are dispatched
+                exclusively to the parents of absent students.</p>
+            </div>
+            <div class="story-card danger">
+              <h3>Preventing Dropouts & Truancy</h3>
+              <p>Early intervention is critical in an academic setting. By informing parents on the exact day of
+                absence, the system actively discourages truancy and prevents minor attendance issues from spiraling
+                into course failure.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="page-number">Page 5</div>
+      </div>
+
+      <!-- PAGE 6: GRAPHICAL ARCHITECTURE -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">Graphical Architecture</h1>
+        <p class="paragraph-lead">Our system uses a decoupled, three-tier architecture ensuring lightning-fast
+          performance and total offline reliability.</p>
+
+        <div class="diagram-box">
+          <h3
+            style="font-size: 16px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin-bottom: 30px;">
+            End-to-End Data Flow</h3>
+
+          <div class="flow">
+            <div class="fnode blue">
+              <h4>1. ESP32 Edge Node</h4>
+              <p>Reads RFID, runs TinyML fraud detection, caches to SD Card</p>
+            </div>
+            <div class="farrow">➔</div>
+            <div class="fnode purple">
+              <h4>2. Local Network</h4>
+              <p>Transmits HTTP JSON payload securely over Wi-Fi</p>
+            </div>
+            <div class="farrow">➔</div>
+            <div class="fnode green">
+              <h4>3. DIU Server & DB</h4>
+              <p>Receives data via simple API and logs attendance permanently</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 30px;">
+          <div class="story-card info">
+            <h3>Edge Computing</h3>
+            <p>By processing the AI fraud detection directly on the ESP32 (Edge Compute), we avoid sending constant data
+              streams to the cloud. This saves immense bandwidth and ensures decisions are made in under 10
+              milliseconds.</p>
+          </div>
+          <div class="story-card success">
+            <h3>Asynchronous Processing</h3>
+            <p>The hardware runs on FreeRTOS with dual-core processing. Core 0 handles all Wi-Fi network requests, while
+              Core 1 handles biometric scanning. This prevents the scanner from "freezing" when waiting for the server
+              to respond.</p>
+          </div>
+        </div>
+
+        <div class="page-number">Page 6</div>
+      </div>
+
+      <!-- PAGE 7: AI FRAUD DETECTION -->
+      <div class="pg pg-break">
+        <h1 class="heading-1" style="color: #4c1d95;">Breakthrough Innovation:<br>On-Device TinyML</h1>
+        <p class="paragraph-lead">How do we stop a student from bringing three friends' ID cards and tapping them all?
+          Asking everyone to use a fingerprint scanner is too slow. Our core technological breakthrough is <span
+            class="highlight-text" style="color:#6d28d9; font-weight:900;">Tiny Machine Learning (TinyML)</span>.</p>
+
+        <div class="story-card highlight">
+          <h3>The TinyML Neural Network</h3>
+          <p>We did not just build a simple RFID scanner. We successfully deployed a trained, quantized Neural Network
+            directly onto the ESP32's limited microcontroller memory. The TinyML algorithm acts as an invisible security
+            guard.</p>
+          <p style="margin-top: 10px;">Every time a card is tapped, the AI analyzes the <strong>temporal tapping
+              behavior</strong>—measuring millisecond delays between scans, card frequency, and sequence patterns. It
+            calculates a real-time Fraud Probability Score locally, without ever communicating with a cloud server.</p>
+        </div>
+
+        <!-- Made image responsive and "contain" to prevent narrowing/cropping -->
+        <div class="hero-image contain" style="height: 400px; box-shadow: 0 10px 30px rgba(239,68,68,0.2);">
+          <img
+            src="file:///Users/kabya/.gemini/antigravity/brain/2f76ad43-dc5f-4c92-9d52-379df71c04e2/fraud_detection_1777559640224.png"
+            alt="Fraud Detection Alert">
+        </div>
+
+        <h2 class="heading-2">Selective Biometric Challenge</h2>
+        <p class="paragraph">95% of students scan normally and are approved instantly via RFID. But if the TinyML
+          algorithm detects an anomaly (e.g., someone rapid-tapping three cards in a row), the device immediately halts.
+          The OLED flashes <strong>"Fraud Alert"</strong>, forcing the suspected student to authenticate via the
+          built-in R307 fingerprint sensor. <strong>It is the perfect balance of extreme speed and bulletproof
+            security.</strong></p>
+
+        <div class="page-number">Page 7</div>
+      </div>
+
+      <!-- PAGE 8: OFFLINE RESILIENCE & INTEGRATION -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">100% Offline Resilience</h1>
+
+        <p class="paragraph-lead">What happens when the DIU server crashes or the classroom Wi-Fi goes down? With the
+          current teacher portal, the system breaks. Our device doesn't.</p>
+
+        <div class="story-card success">
+          <h3>SD-Card Cache & Hardware Clock</h3>
+          <p>The device is equipped with a MicroSD card module and a battery-backed Real Time Clock (RTC). If the device
+            loses connection to the university network, it switches to Offline Mode automatically. All attendance scans
+            are cached securely on the SD card with perfect UTC timestamps. When the network returns, it batch-syncs the
+            data to the server seamlessly. <strong>Zero data is ever lost.</strong></p>
+        </div>
+
+        <h1 class="heading-1" style="margin-top: 50px;">Seamless API Integration</h1>
+        <p class="paragraph">DIU does not need to throw away its current database or rewrite its servers to use our
+          device.</p>
+
+        <div class="story-card info">
+          <h3>Universal JSON Compatibility</h3>
+          <p>The Smart Edge Node communicates using standard HTTP REST APIs and JSON payloads. Whether DIU’s backend is
+            written in PHP, Node.js, Python, or Java, our device simply POSTs a JSON packet containing
+            <code>{ "student_id": "252-15-254", "timestamp": "09:00:00" }</code>. It is a completely plug-and-play edge
+            computing layer.
+          </p>
+        </div>
+
+        <div class="grid-2" style="margin-top:30px;">
+          <div class="stat-box" style="background: #10b981; padding: 20px;">
+            <div class="stat-val" style="color:white; font-size:32px;">No Backend Overhaul</div>
+            <div class="stat-label" style="color:#d1fae5;">Required for DIU</div>
+          </div>
+          <div class="stat-box" style="background: #8b5cf6; padding: 20px;">
+            <div class="stat-val" style="color:white; font-size:32px;">Standalone</div>
+            <div class="stat-label" style="color:#ede9fe;">Edge Compute Architecture</div>
+          </div>
+        </div>
+        <div class="page-number">Page 8</div>
+      </div>
+
+      <!-- PAGE 9: PHYSICAL PROTOTYPE -->
+      <div class="pg pg-break">
+        <h1 class="heading-1">We Have Built It.</h1>
+        <p class="paragraph-lead" style="border-left-color: #10b981;">This is not a theoretical concept or a future
+          estimate. We have already engineered, assembled, and programmed this fully functional hardware prototype.</p>
+
+        <div id="proto-1" class="upload-placeholder" style="height: 450px;">
+          Upload Physical Prototype Photo
+        </div>
+
+        <div
+          style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 2px solid #e2e8f0; background: #f8fafc; padding: 30px; border-radius: 16px;">
+          <p style="font-size: 24px; font-weight: 900; color: #0f172a; margin-bottom: 10px;">Ready for real-world
+            deployment.</p>
+          <p style="font-size: 18px; color: #1e293b; font-weight: 600;">We have successfully built this entire
+            functional unit for under <span style="color:#2563eb; font-weight: 800;">6,000 BDT</span>.</p>
+          <p style="font-size: 15px; color: #64748b; margin-top: 10px;">This is the actual documented cost, proving that
+            we can digitize DIU's attendance infrastructure tomorrow, affordably and efficiently.</p>
+        </div>
+
+        <div class="page-number">Page 9</div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function previewUpload(event, id) {
+      const f = event.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = e => {
+        const c = document.getElementById(id);
+        c.innerHTML = `<img src="${e.target.result}" alt="Prototype Photo">`;
+        c.style.border = 'none';
+        c.style.background = 'transparent';
+      };
+      r.readAsDataURL(f);
+    }
+  </script>
+</body>
+
+</html>

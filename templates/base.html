@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Attendance Portal</title>
+    <!-- Tailwind CSS CDN for academic assignment simplicity -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf for report generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-800 h-screen flex overflow-hidden">
+
+    {% if session.get('logged_in') %}
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 bg-indigo-700 text-white flex flex-col shadow-2xl z-20 transition-all duration-300">
+        <div class="h-16 flex items-center justify-center border-b border-indigo-600 font-bold text-xl tracking-wider">
+            <i class="fa-solid fa-graduation-cap mr-2"></i> Team X (DIU)
+        </div>
+        <nav class="flex-1 py-6 space-y-2 px-4">
+            <a href="{{ url_for('dashboard') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'dashboard' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-chart-pie w-6"></i>
+                <span class="font-medium ml-3">Dashboard</span>
+            </a>
+            <a href="{{ url_for('attendance_log') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'attendance_log' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-clock-rotate-left w-6"></i>
+                <span class="font-medium ml-3">Daily Logs</span>
+            </a>
+            <a href="{{ url_for('students') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'students' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-users w-6"></i>
+                <span class="font-medium ml-3">Students</span>
+            </a>
+            <a href="{{ url_for('enroll') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'enroll' or request.endpoint == 'enroll_sensors' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-user-plus w-6"></i>
+                <span class="font-medium ml-3">Enroll New</span>
+            </a>
+            <a href="{{ url_for('grading') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'grading' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-file-signature w-6"></i>
+                <span class="font-medium ml-3">Grading</span>
+            </a>
+            <a href="{{ url_for('ai_dashboard') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'ai_dashboard' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-brain w-6"></i>
+                <span class="font-medium ml-3">AI Monitor</span>
+            </a>
+            <a href="{{ url_for('voice_monitor') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'voice_monitor' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-microphone-lines w-6"></i>
+                <span class="font-medium ml-3">Voice Monitor</span>
+            </a>
+            <a href="{{ url_for('settings') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'settings' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-gear w-6"></i>
+                <span class="font-medium ml-3">Settings</span>
+            </a>
+        </nav>
+        <div class="p-4 border-t border-indigo-600">
+            <a href="{{ url_for('logout') }}"
+                class="flex items-center px-4 py-2 text-indigo-200 hover:text-white transition-colors">
+                <i class="fa-solid fa-right-from-bracket w-6"></i>
+                <span class="ml-3">Logout</span>
+            </a>
+        </div>
+    </aside>
+    {% endif %}
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto relative bg-gradient-to-br from-gray-50 to-gray-200">
+        <!-- Optional Top Header -->
+        {% if session.get('logged_in') %}
+        <header class="h-16 bg-white shadow-sm flex items-center px-8 justify-between z-10 sticky top-0">
+            <h2 class="text-xl font-semibold text-gray-700 capitalize">
+                {{ request.endpoint.replace('_', ' ') }}
+            </h2>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500 font-mono bg-gray-100 px-3 py-1 rounded"><i
+                        class="fa-solid fa-clock mr-1"></i> <span id="clock"></span></span>
+                <div
+                    class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner">
+                    <i class="fa-solid fa-user-tie"></i>
+                </div>
+            </div>
+        </header>
+        {% endif %}
+
+        <!-- Flash Messages -->
+        <div class="absolute top-20 right-8 z-50 w-80 space-y-2" id="flash-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="fade-in p-4 rounded-lg shadow-xl flex items-start 
+                            {% if category == 'error' %}bg-red-50 text-red-800 border-l-4 border-red-500
+                            {% elif category == 'success' %}bg-green-50 text-green-800 border-l-4 border-green-500
+                            {% else %}bg-blue-50 text-blue-800 border-l-4 border-blue-500{% endif %}">
+                <i
+                    class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% elif category == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %} mt-1 mr-3 text-lg"></i>
+                <div>
+                    <p class="text-sm font-semibold">{{ message }}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Page Content -->
+        <div class="p-8 flex-1 fade-in max-w-7xl mx-auto w-full">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script>
+        // Simple clock functionality for the header
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const clockEl = document.getElementById('clock');
+            if (clockEl) clockEl.innerText = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Auto-dismiss flash messages after 5 seconds
+        setTimeout(() => {
+            const flashes = document.querySelectorAll('#flash-container > div');
+            flashes.forEach(f => {
+                f.style.opacity = '0';
+                f.style.transition = 'opacity 0.5s';
+                setTimeout(() => f.remove(), 500);
+            });
+        }, 5000);
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

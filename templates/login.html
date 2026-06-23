@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="flex items-center justify-center h-full">
+    <div class="w-full max-w-md">
+        <div class="glass-panel rounded-2xl shadow-xl overflow-hidden mt-10">
+            <div class="bg-indigo-600 px-6 py-8 text-center text-white relative">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
+                <div class="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-10 rounded-full -ml-12 -mb-12"></div>
+                <div
+                    class="w-16 h-16 bg-white rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg text-indigo-600 text-3xl">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h1 class="text-3xl font-bold tracking-tight z-10 relative">Team X</h1>
+                <p class="text-indigo-200 mt-2 z-10 relative">Teacher Administration Portal</p>
+            </div>
+            <div class="p-8">
+                <form action="{{ url_for('login') }}" method="POST" class="space-y-6">
+                    <div>
+                        <label for="username" class="block text-sm font-semibold text-gray-700">Username</label>
+                        <div class="mt-1 relative rounded-md shadow-sm">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <input type="text" name="username" id="username"
+                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white/50"
+                                placeholder="admin" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
+                        <div class="mt-1 relative rounded-md shadow-sm">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i class="fa-solid fa-lock"></i>
+                            </div>
+                            <input type="password" name="password" id="password"
+                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white/50"
+                                placeholder="••••••••" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="submit"
+                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all hover:shadow-lg transform hover:-translate-y-0.5">
+                            Sign in <i class="fa-solid fa-arrow-right ml-2 mt-1"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <p class="text-center text-sm text-gray-400 mt-6 font-medium tracking-wide border-t border-gray-200 pt-6">
+            IoT Academic Project &copy; 2026<br>
+            Made by <span class="font-bold text-gray-600">Kabya Ghosh</span>
+        </p>
+    </div>
+</div>
+{% endblock %}

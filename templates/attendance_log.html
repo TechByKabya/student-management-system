@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Daily Attendance Logs</h2>
+            <p class="text-gray-500 mt-2 text-lg">Detailed history of all student check-ins.</p>
+        </div>
+        <div class="flex gap-3 items-center">
+            {% if grouped_logs %}
+            <select id="report-date-select"
+                class="bg-white border text-sm border-gray-300 text-gray-700 py-2 pl-3 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none shadow-sm print-hidden">
+                <option value="all">All Dates</option>
+                {% for date in grouped_logs.keys() %}
+                <option value="{{ date }}">{{ date }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <button onclick="generatePDFReport()"
+                class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-semibold shadow-sm hover:bg-indigo-100 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 transform hover:-translate-y-0.5 shrink-0 print-hidden whitespace-nowrap">
+                <i class="fa-solid fa-file-pdf mr-2"></i> Download PDF
+            </button>
+        </div>
+    </div>
+
+    {% if not grouped_logs %}
+    <div class="glass-panel text-center p-12 rounded-2xl shadow-sm border border-gray-100" id="attendance-empty">
+        <i class="fa-solid fa-clock-rotate-left text-5xl text-gray-300 mb-4"></i>
+        <h3 class="text-lg font-bold text-gray-900 mb-1">No Attendance Data Found</h3>
+        <p class="text-gray-500">Wait for students to scan their devices to see logs here.</p>
+    </div>
+    <div id="attendance-container" class="space-y-8"></div>
+    {% else %}
+    <div class="space-y-8" id="attendance-container">
+        {% for date, logs in grouped_logs.items() %}
+        <details class="glass-panel rounded-2xl shadow-xl overflow-hidden mb-6 group bg-white/40 print-block"
+            data-date="{{ date }}" {% if loop.first %}open{% endif %}>
+            <!-- Date Header -->
+            <summary
+                class="bg-indigo-600 px-6 py-4 flex items-center justify-between cursor-pointer list-none appearance-none hover:bg-indigo-700 transition print-header">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fa-solid fa-calendar-day mr-3 text-indigo-200"></i>
+                    {{ date }}
+                    {% if status_map.get(date) == 1 %}
+                    <span
+                        class="ml-4 text-xs font-bold px-2 py-1 bg-emerald-500 rounded text-white tracking-widest uppercase shadow-sm">Open</span>
+                    {% else %}
+                    <span
+                        class="ml-4 text-xs font-bold px-2 py-1 bg-red-500 rounded text-white tracking-widest uppercase shadow-sm">Closed</span>
+                    {% endif %}
+                </h3>
+                <div class="flex items-center text-white">
+                    <span class="bg-indigo-800 text-indigo-100 text-sm font-semibold px-3 py-1 rounded-full mr-4">
+                        {{ logs|length }} Scans
+                    </span>
+                    <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180 print-hidden"></i>
+                </div>
+            </summary>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50/80 backdrop-blur-sm">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                Time</th>
+                            <th scope="col"
+                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                Student Name</th>
+                            <th scope="col"
+                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                Roll No. (SID)</th>
+                            <th scope="col"
+                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                Method</th>
+                            <th scope="col"
+                                class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider print-hidden">
+                                Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white/60 divide-y divide-gray-100 backdrop-blur-md">
+                        {% for log in logs %}
+                        <tr class="hover:bg-indigo-50/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
+                                {{ log.local_time.split(' ')[1] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-gray-900">{{ log.name }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">
+                                {{ log.school_id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if log.sensor_type == 'rfid' %}
+                                <span
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                                    <i class="fa-solid fa-id-card mr-1"></i> RFID
+                                </span>
+                                {% elif log.sensor_type == 'fingerprint' %}
+                                <span
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                    <i class="fa-solid fa-fingerprint mr-1"></i> Fingerprint
+                                </span>
+                                {% else %}
+                                <span
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800">
+                                    {{ log.sensor_type }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm print-hidden">
+                                <form action="{{ url_for('delete_attendance_route', log_id=log.id) }}" method="POST"
+                                    class="inline" onsubmit="return confirm('Delete this log entry?');">
+                                    <button type="submit"
+                                        class="text-red-400 hover:text-red-600 p-2 rounded hover:bg-red-50 transition-colors"
+                                        title="Delete Log">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Seamless Real-Time Polling for new attendance logs
+    setInterval(function () {
+        fetch(window.location.href)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContainer = doc.getElementById('attendance-container');
+                const oldContainer = document.getElementById('attendance-container');
+
+                if (newContainer && oldContainer) {
+                    const oldRows = oldContainer.querySelectorAll('tbody tr').length;
+                    const newRows = newContainer.querySelectorAll('tbody tr').length;
+
+                    // Only update DOM if new lines were added by ESP32 real-time scanning
+                    if (newRows > oldRows) {
+                        // Hide empty state if it was there
+                        const emptyState = document.getElementById('attendance-empty');
+                        if (emptyState) emptyState.style.display = 'none';
+
+                        // Save open toggle states
+                        const openStates = {};
+                        oldContainer.querySelectorAll('details').forEach(d => {
+                            openStates[d.getAttribute('data-date')] = d.open;
+                        });
+
+                        // Inject fresh HTML
+                        oldContainer.innerHTML = newContainer.innerHTML;
+
+                        // Restore open toggle states
+                        document.querySelectorAll('#attendance-container details').forEach(d => {
+                            const date = d.getAttribute('data-date');
+                            if (openStates[date] !== undefined) {
+                                d.open = openStates[date];
+                            }
+                        });
+
+                        // Show a toast notification
+                        const flashContainer = document.getElementById('flash-container');
+                        if (flashContainer) {
+                            const toast = document.createElement('div');
+                            toast.className = "fade-in p-4 rounded-lg shadow-xl flex items-start bg-blue-50 text-blue-800 border-l-4 border-blue-500 mb-2";
+                            toast.innerHTML = `
+                            <i class="fa-solid fa-wifi mt-1 mr-3 text-lg animate-pulse"></i>
+                            <div><p class="text-sm font-semibold">Live Update: New attendance record synced from ESP32!</p></div>
+                            <button onclick="this.parentElement.remove()" class="ml-auto text-blue-400 hover:text-blue-600">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        `;
+                            flashContainer.appendChild(toast);
+                            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 4000);
+                        }
+                    }
+                }
+            });
+    }, 2500); // Pulse every 2.5s
+</script>
+<script>
+    // Open requested details block for printing, hide others
+    function generatePDFReport() {
+        const dateSelect = document.getElementById('report-date-select');
+        const selectedDate = dateSelect ? dateSelect.value : 'all';
+        const container = document.getElementById('attendance-container');
+
+        if (!container) return;
+
+        // Temporarily modify the UI for PDF layout
+        const originalStates = [];
+        const detailsElements = container.querySelectorAll('details');
+
+        // Hide print-hidden elements manually since html2pdf might not respect the CSS fully sometimes
+        const hideElements = document.querySelectorAll('.print-hidden');
+        hideElements.forEach(el => el.style.display = 'none');
+
+        // Setup details elements based on selection
+        detailsElements.forEach(details => {
+            const date = details.getAttribute('data-date');
+            originalStates.push({
+                element: details,
+                display: details.style.display,
+                open: details.open
+            });
+
+            if (selectedDate === 'all' || selectedDate === date) {
+                details.style.display = 'block';
+                details.open = true; // Must be open to be rendered in the PDF
+            } else {
+                details.style.display = 'none';
+            }
+        });
+
+        // Add a temporary title for the PDF
+        const titleContainer = document.createElement('div');
+        titleContainer.className = 'text-center mb-8 pb-4 border-b-2 border-gray-200';
+        titleContainer.innerHTML = `
+            <h1 style="font-size: 24pt; font-weight: bold; color: #4F46E5;">Team X Attendance Report</h1>
+            <p style="font-size: 14pt; color: #6B7280; margin-top: 8px;">Date: ${selectedDate === 'all' ? 'All Records' : selectedDate}</p>
+        `;
+        container.insertBefore(titleContainer, container.firstChild);
+
+        const opt = {
+            margin: [15, 15, 15, 15],
+            filename: `Attendance_Report_${selectedDate}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Create a wrapper to control the background explicitly for the PDF
+        const wrapper = document.createElement('div');
+        wrapper.style.backgroundColor = '#ffffff';
+        wrapper.style.padding = '20px';
+
+        // Clone the container to avoid messing with the live DOM too much during rendering
+        wrapper.appendChild(container.cloneNode(true));
+
+        html2pdf().set(opt).from(wrapper).save().then(() => {
+            // Restore UI
+            titleContainer.remove();
+            hideElements.forEach(el => el.style.display = '');
+            originalStates.forEach(state => {
+                state.element.style.display = state.display;
+                state.element.open = state.open;
+            });
+        });
+    }
+</script>
+<style>
+    /* Reset summary arrows for Safari/Chrome */
+    details>summary::-webkit-details-marker {
+        display: none;
+    }
+
+    /* Print Styles */
+    @media print {
+        body {
+            background-color: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        aside,
+        header,
+        #flash-container,
+        .print-hidden {
+            display: none !important;
+        }
+
+        main {
+            padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
+        }
+
+        .glass-panel {
+            background: none;
+            border: none;
+            box-shadow: none;
+        }
+
+        .print-block {
+            display: block !important;
+            margin-bottom: 30px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 8px !important;
+        }
+
+        .print-header {
+            background-color: #f3f4f6 !important;
+            color: #111827 !important;
+            border-bottom: 2px solid #d1d5db !important;
+        }
+
+        .print-header h3,
+        .print-header i {
+            color: #111827 !important;
+        }
+
+        .print-header span {
+            background-color: #e5e7eb !important;
+            color: #374151 !important;
+            border: 1px solid #9ca3af !important;
+        }
+
+        details {
+            display: block !important;
+        }
+
+        details>div {
+            display: block !important;
+        }
+    }
+</style>
+{% endblock %}

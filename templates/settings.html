@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Admin Settings</h2>
+        <p class="text-gray-500 mt-2 text-lg">Update your secure login credentials for the Teacher Portal.</p>
+    </div>
+
+    <div class="glass-panel p-8 rounded-2xl shadow-xl border border-gray-200 bg-white/70">
+        <form action="{{ url_for('settings') }}" method="POST" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-bold text-gray-700 mb-2">Login Username</label>
+                <div class="relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <input type="text" name="username" id="username" value="{{ username }}"
+                        class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-white/80 font-medium"
+                        required>
+                </div>
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-bold text-gray-700 mb-2">Login Password</label>
+                <div class="relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <input type="password" name="password" id="password" placeholder="Enter new password"
+                        class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-white/80 font-medium"
+                        required>
+                </div>
+                <p class="text-xs text-gray-400 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> Make sure to use a
+                    strong password for your academic security.</p>
+            </div>
+
+            <div class="pt-4 mt-2 border-t border-gray-100">
+                <label for="teacher_rfid" class="block text-sm font-bold text-gray-700 mb-2">Master Teacher RFID <span
+                        class="text-xs font-normal text-gray-500">(Optional)</span></label>
+                <div class="flex items-center gap-3">
+                    <div class="relative rounded-md shadow-sm flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-id-card"></i>
+                        </div>
+                        <input type="text" name="teacher_rfid" id="teacher_rfid" value="{{ teacher_rfid }}"
+                            placeholder="Tap scan or type manually"
+                            class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-white/80 font-mono text-sm uppercase">
+                    </div>
+                    <button type="button" id="scan-rfid-btn" onclick="startRfidScan()"
+                        class="shrink-0 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-wifi text-sm"></i>
+                        <span id="scan-btn-text">Scan RFID</span>
+                    </button>
+                </div>
+                <p id="scan-status-msg" class="text-xs text-gray-500 mt-2">
+                    <i class="fa-solid fa-lightbulb mr-1 text-amber-500"></i>
+                    Scanning this RFID tag will instantly OPEN or CLOSE attendance for the day.
+                </p>
+            </div>
+
+            <!-- ===== SMS NOTIFICATIONS SECTION ===== -->
+            <div class="pt-4 mt-2 border-t border-gray-100">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <i class="fa-solid fa-comment-sms text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-800">Absence SMS Notifications</h3>
+                        <p class="text-xs text-gray-500">Powered by <a href="https://bulksmsbd.com" target="_blank"
+                                class="text-indigo-500 hover:underline font-medium">BulkSMSBD</a></p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mb-4 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
+                    <i class="fa-solid fa-circle-info mr-1 text-blue-400"></i>
+                    When you <strong>close</strong> the attendance portal, an automatic SMS is sent to all absent
+                    students. Duplicate SMS per student per day are prevented.
+                </p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="sms_api_key" class="block text-sm font-semibold text-gray-700 mb-1">BulkSMSBD API
+                            Key</label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i class="fa-solid fa-key text-sm"></i>
+                            </div>
+                            <input type="text" name="sms_api_key" id="sms_api_key" value="{{ sms_api_key }}"
+                                placeholder="Paste your API key from bulksmsbd.com dashboard"
+                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 font-mono text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="sms_sender_id" class="block text-sm font-semibold text-gray-700 mb-1">Sender
+                            ID</label>
+                        <div class="relative rounded-md shadow-sm">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i class="fa-solid fa-tower-broadcast text-sm"></i>
+                            </div>
+                            <input type="text" name="sms_sender_id" id="sms_sender_id" value="{{ sms_sender_id }}"
+                                placeholder="e.g. MySchool (your approved Sender ID)"
+                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 font-mono text-sm uppercase">
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1.5"><i class="fa-solid fa-circle-info mr-1"></i>Your Sender
+                            ID must be approved in your BulkSMSBD account before use.</p>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="button" onclick="resetSmsDemo()"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-emerald-50 text-emerald-600 text-xs font-bold rounded-xl border border-emerald-200 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <i class="fa-solid fa-rotate-right"></i> Enable Demo Mode (Reset Sent SMS)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- ===== END SMS SECTION ===== -->
+
+            <div class="pt-6 border-t border-gray-100 flex justify-end">
+                <button type="submit"
+                    class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all transform hover:-translate-y-0.5">
+                    Save Changes <i class="fa-solid fa-check ml-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ===== DANGER ZONE ===== -->
+<div class="mt-8">
+    <div class="max-w-2xl mx-auto glass-panel rounded-2xl border-2 border-red-200 bg-white overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-red-100 bg-red-50">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center text-red-600">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-red-700 uppercase tracking-widest">Danger Zone</h3>
+                    <p class="text-xs text-red-400 mt-0.5">Irreversible hardware operations</p>
+                </div>
+            </div>
+        </div>
+        <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <p class="font-semibold text-gray-800">Wipe All Fingerprints</p>
+                <p class="text-sm text-gray-500 mt-0.5">Commands the ESP32 to delete every stored fingerprint
+                    template from the sensor module. Student records remain intact.</p>
+            </div>
+            <button id="btn-wipe-fingerprints" onclick="wipeAllFingerprints()"
+                class="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow transition-all transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <i class="fa-solid fa-trash-can"></i> Wipe All Fingerprints
+            </button>
+        </div>
+        <!-- Waiting indicator (hidden until wipe is triggered) -->
+        <div id="wipe-waiting" class="hidden px-6 pb-4">
+            <div class="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <i class="fa-solid fa-spinner fa-spin text-amber-500"></i>
+                <span class="text-sm font-medium text-amber-700">Waiting for ESP32 to complete hardware wipe…</span>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ===== WIPE CONFIRMATION MODAL ===== -->
+<div id="wipe-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="bg-red-600 px-6 py-5 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <i class="fa-solid fa-triangle-exclamation text-white text-lg"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">Confirm Master Reset</h3>
+        </div>
+        <div class="px-6 py-5">
+            <p class="text-gray-700">This will send a <strong>delete_all</strong> command to the ESP32, permanently
+                erasing every fingerprint template stored on the sensor hardware.</p>
+            <p class="mt-3 text-sm text-gray-500">Student records, grades, and attendance logs are <strong>not</strong>
+                affected. Only the physical sensor mappings will be cleared.</p>
+            <div class="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
+                <i class="fa-solid fa-circle-exclamation mr-2"></i>This action cannot be undone.
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-3">
+            <button onclick="closeWipeModal()"
+                class="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                Cancel
+            </button>
+            <button onclick="confirmWipe()"
+                class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold shadow transition">
+                <i class="fa-solid fa-trash-can mr-2"></i>Yes, Wipe All
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TOAST NOTIFICATION ===== -->
+<div id="toast-notification"
+    class="hidden fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-white text-sm font-semibold max-w-sm transition-all duration-300">
+    <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
+    <span id="toast-message"></span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let scanPollInterval = null;
+
+    function startRfidScan() {
+        const btn = document.getElementById('scan-rfid-btn');
+        const btnText = document.getElementById('scan-btn-text');
+        const msg = document.getElementById('scan-status-msg');
+        const input = document.getElementById('teacher_rfid');
+
+        // Trigger the ESP32 into capture mode
+        fetch('/action/start_teacher_rfid_scan', { method: 'POST' }).then(() => {
+            // Update UI to scanning state
+            btnText.textContent = 'Waiting...';
+            btn.classList.add('animate-pulse', 'bg-amber-500', 'hover:bg-amber-600');
+            btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1 text-indigo-500"></i> <b>Tap your RFID card/tag on the ESP32 scanner now...</b>';
+
+            // Poll for the result every 500ms
+            if (scanPollInterval) clearInterval(scanPollInterval);
+            scanPollInterval = setInterval(() => {
+                fetch('/api/teacher_rfid_capture').then(r => r.json()).then(data => {
+                    if (data.captured) {
+                        clearInterval(scanPollInterval);
+                        input.value = data.uid;
+                        btnText.textContent = 'Scan RFID';
+                        btn.classList.remove('animate-pulse', 'bg-amber-500', 'hover:bg-amber-600');
+                        btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                        msg.innerHTML = '<i class="fa-solid fa-circle-check mr-1 text-emerald-500"></i> <b class="text-emerald-600">RFID Captured! Click "Save Changes" to register it.</b>';
+                    }
+                });
+            }, 500);
+
+            // Auto-cancel after 30 seconds
+            setTimeout(() => {
+                if (scanPollInterval) {
+                    clearInterval(scanPollInterval);
+                    btnText.textContent = 'Scan RFID';
+                    btn.classList.remove('animate-pulse', 'bg-amber-500', 'hover:bg-amber-600');
+                    btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    msg.innerHTML = '<i class="fa-solid fa-lightbulb mr-1 text-amber-500"></i> Scan timed out. Try again.';
+                }
+            }, 30000);
+        });
+    }
+
+    // ===== MASTER RESET (Wipe All Fingerprints) =====
+    function wipeAllFingerprints() {
+        document.getElementById('wipe-modal').classList.remove('hidden');
+    }
+
+    function closeWipeModal() {
+        document.getElementById('wipe-modal').classList.add('hidden');
+    }
+
+    let wipePollingInterval = null;
+
+    function confirmWipe() {
+        closeWipeModal();
+
+        const btn = document.getElementById('btn-wipe-fingerprints');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+        document.getElementById('wipe-waiting').classList.remove('hidden');
+
+        fetch('/action/wipe_fingerprints', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    showToast('Failed to trigger wipe. Check server logs.', 'error');
+                    resetWipeUI();
+                    return;
+                }
+                // Poll ESP32 status until mode returns to 'attendance'
+                wipePollingInterval = setInterval(() => {
+                    fetch('/api/system/status')
+                        .then(r => r.json())
+                        .then(s => {
+                            if (s.esp32_mode === 'attendance') {
+                                clearInterval(wipePollingInterval);
+                                resetWipeUI();
+                                showToast('All fingerprints wiped successfully!', 'success');
+                            }
+                        })
+                        .catch(console.error);
+                }, 2000);
+            })
+            .catch(() => {
+                showToast('Network error. Please try again.', 'error');
+                resetWipeUI();
+            });
+    }
+
+    function resetWipeUI() {
+        const btn = document.getElementById('btn-wipe-fingerprints');
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        document.getElementById('wipe-waiting').classList.add('hidden');
+    }
+
+    function resetSmsDemo() {
+        if (!confirm('Are you sure you want to reset the SMS logs? This will allow duplicate SMS to be sent to absent students today.')) {
+            return;
+        }
+
+        fetch('/action/reset_sms_log', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('SMS logs reset! You can now demo the feature again.', 'success');
+                } else {
+                    showToast('Failed to reset logs.', 'error');
+                }
+            })
+            .catch(() => showToast('Network error.', 'error'));
+    }
+
+    function showToast(message, type) {
+        const toast = document.getElementById('toast-notification');
+        const icon = document.getElementById('toast-icon');
+        const msg = document.getElementById('toast-message');
+
+        msg.textContent = message;
+        toast.className = toast.className.replace(/bg-\S+/g, '').trim();
+
+        if (type === 'success') {
+            toast.classList.add('bg-emerald-600');
+            icon.className = 'fa-solid fa-check-circle text-lg';
+        } else {
+            toast.classList.add('bg-red-600');
+            icon.className = 'fa-solid fa-circle-xmark text-lg';
+        }
+
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 4000);
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('wipe-modal').addEventListener('click', function (e) {
+        if (e.target === this) closeWipeModal();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,186 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <driver/i2s.h>
+
+// ==========================================
+// CONFIGURATION
+// ==========================================
+const char* ssid = "Network";
+const char* password = "Team@x123";
+
+// I2S Pins for INMP441
+#define I2S_WS 15
+#define I2S_SD 32
+#define I2S_SCK 14
+#define I2S_PORT I2S_NUM_0
+
+// Onboard LED Pin
+#define LED_PIN 2
+
+// Audio recording settings
+#define SAMPLE_RATE 16000
+#define SAMPLE_BITS 16
+#define RECORD_TIME_SEC 3
+
+// ==========================================
+
+WebServer server(80);
+
+const int headerSize = 44;
+const int byteRate = SAMPLE_RATE * (SAMPLE_BITS / 8);
+const int audioDataSize = byteRate * RECORD_TIME_SEC;
+const int totalWavSize = headerSize + audioDataSize;
+
+uint8_t* wavBuffer;
+
+void setupI2S() {
+  i2s_config_t i2s_config = {
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+    .sample_rate = SAMPLE_RATE,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+    .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
+    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+    .dma_buf_count = 8,
+    .dma_buf_len = 1024,
+    .use_apll = false,
+    .tx_desc_auto_clear = false,
+    .fixed_mclk = 0
+  };
+
+  i2s_pin_config_t pin_config = {
+    .bck_io_num = I2S_SCK,
+    .ws_io_num = I2S_WS,
+    .data_out_num = I2S_PIN_NO_CHANGE,
+    .data_in_num = I2S_SD
+  };
+
+  i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_PORT, &pin_config);
+  i2s_zero_dma_buffer(I2S_PORT);
+}
+
+void createWavHeader(uint8_t* header, int dataSize) {
+  int fileSize = dataSize + 36;
+  
+  header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
+  header[4] = (uint8_t)(fileSize & 0xFF);
+  header[5] = (uint8_t)((fileSize >> 8) & 0xFF);
+  header[6] = (uint8_t)((fileSize >> 16) & 0xFF);
+  header[7] = (uint8_t)((fileSize >> 24) & 0xFF);
+  header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
+  header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+  header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0;
+  header[20] = 1; header[21] = 0;
+  header[22] = 1; header[23] = 0;
+  header[24] = (uint8_t)(SAMPLE_RATE & 0xFF);
+  header[25] = (uint8_t)((SAMPLE_RATE >> 8) & 0xFF);
+  header[26] = (uint8_t)((SAMPLE_RATE >> 16) & 0xFF);
+  header[27] = (uint8_t)((SAMPLE_RATE >> 24) & 0xFF);
+  header[28] = (uint8_t)(byteRate & 0xFF);
+  header[29] = (uint8_t)((byteRate >> 8) & 0xFF);
+  header[30] = (uint8_t)((byteRate >> 16) & 0xFF);
+  header[31] = (uint8_t)((byteRate >> 24) & 0xFF);
+  header[32] = (uint8_t)(SAMPLE_BITS / 8); header[33] = 0;
+  header[34] = 16; header[35] = 0;
+  header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+  header[40] = (uint8_t)(dataSize & 0xFF);
+  header[41] = (uint8_t)((dataSize >> 8) & 0xFF);
+  header[42] = (uint8_t)((dataSize >> 16) & 0xFF);
+  header[43] = (uint8_t)((dataSize >> 24) & 0xFF);
+}
+
+void handleRecord() {
+  Serial.println("Recording requested...");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  
+  if (wavBuffer == nullptr) {
+    server.send(500, "text/plain", "Buffer allocation failed");
+    return;
+  }
+  
+  createWavHeader(wavBuffer, audioDataSize);
+  
+  size_t bytesRead = 0;
+  int offset = headerSize;
+  int remaining = audioDataSize;
+  
+  Serial.println("Recording started...");
+  digitalWrite(LED_PIN, HIGH); // Turn ON LED to indicate recording
+  while (remaining > 0) {
+    size_t bytesToRead = (remaining > 1024) ? 1024 : remaining;
+    i2s_read(I2S_PORT, wavBuffer + offset, bytesToRead, &bytesRead, portMAX_DELAY);
+    
+    // INMP441 24-bit shifted left, may need volume adjustment
+    // But directly saving 16-bit MSB is usually okay.
+    
+    offset += bytesRead;
+    remaining -= bytesRead;
+  }
+  digitalWrite(LED_PIN, LOW); // Turn OFF LED when done
+  Serial.println("Recording finished, sending file...");
+  
+  server.setContentLength(totalWavSize);
+  server.send(200, "audio/wav", "");
+  
+  // We send in chunks to avoid overwhelming the network stack
+  int sent = 0;
+  int chunkSize = 2048;
+  while (sent < totalWavSize) {
+    int toSend = min(chunkSize, totalWavSize - sent);
+    server.sendContent((const char*)(wavBuffer + sent), toSend);
+    sent += toSend;
+  }
+  
+  Serial.println("File sent!");
+}
+
+void handleOptions() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+  server.send(204);
+}
+
+void handleStatus() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "application/json", "{\"status\": \"online\"}");
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  
+  wavBuffer = (uint8_t*)malloc(totalWavSize);
+  if (wavBuffer == nullptr) {
+    Serial.println("CRITICAL: Failed to allocate memory for audio buffer!");
+  } else {
+    Serial.printf("Allocated %d bytes for audio buffer.\n", totalWavSize);
+  }
+  
+  setupI2S();
+  
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
+  
+  server.on("/record", HTTP_GET, handleRecord);
+  server.on("/record", HTTP_OPTIONS, handleOptions);
+  server.on("/status", HTTP_GET, handleStatus);
+  server.begin();
+  
+  Serial.println("HTTP server started. Ready to accept requests!");
+}
+
+void loop() {
+  server.handleClient();
+}

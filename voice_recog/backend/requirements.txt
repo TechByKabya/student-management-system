@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+jinja2
+requests
+speechbrain<1.0.0
+torch
+torchaudio
+python-multipart
+numpy

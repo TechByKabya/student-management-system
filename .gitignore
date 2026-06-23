@@ -1,0 +1,22 @@
+# Environments
+venv/
+env/
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Mac OS files
+.DS_Store
+
+# Logs and databases
+*.log
+server.log
+*.sqlite3
+*.db
+backend/attendance.db
+
+# Cache
+audio_cache/
