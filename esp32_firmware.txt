@@ -217,6 +217,30 @@ void buildWavHeader(uint8_t* h, int dataSize) {
   h[40]=(dataSize)&0xFF;   h[41]=(dataSize>>8)&0xFF;
   h[42]=(dataSize>>16)&0xFF; h[43]=(dataSize>>24)&0xFF;
 }
+// ========================= I2C Software Reset ======================
+// Clears stuck I2C bus if the display held SDA low due to bad power sequence
+void I2C_ClearBus(uint8_t sda_pin, uint8_t scl_pin) {
+  pinMode(sda_pin, INPUT_PULLUP);
+  pinMode(scl_pin, INPUT_PULLUP);
+  delay(10);
+  
+  pinMode(scl_pin, OUTPUT);
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(scl_pin, HIGH);
+    delayMicroseconds(20);
+    digitalWrite(scl_pin, LOW);
+    delayMicroseconds(20);
+  }
+  
+  // Generate STOP condition
+  pinMode(sda_pin, OUTPUT);
+  digitalWrite(sda_pin, LOW);
+  delayMicroseconds(20);
+  digitalWrite(scl_pin, HIGH);
+  delayMicroseconds(20);
+  digitalWrite(sda_pin, HIGH);
+  delay(10);
+}
 
 // ========================= Setup ===================================
 void setup() {
@@ -224,6 +248,19 @@ void setup() {
 
   pinMode(BUZZER, OUTPUT);
   digitalWrite(BUZZER, LOW);
+
+  // ==================================================================
+  // HARDWARE FIX: Optional OLED Power Control Pin
+  // If your buck converter rises too slowly, the OLED Power-On-Reset (POR) fails.
+  // Fix: Connect OLED VCC to an unused GPIO (e.g. GPIO 32) instead of the 3.3V rail.
+  // Uncomment the two lines below to enable this fix:
+  // #define OLED_POWER_PIN 32
+  // ==================================================================
+  
+  #ifdef OLED_POWER_PIN
+    pinMode(OLED_POWER_PIN, OUTPUT);
+    digitalWrite(OLED_POWER_PIN, LOW); // Keep OLED off initially
+  #endif
 
   // Semaphores
   displayMutex = xSemaphoreCreateMutex();
@@ -240,12 +277,19 @@ void setup() {
   // ── Power Rail Stabilization ──────────────────────────────────────
   // Wait for the buck converter 5V → ESP32 LDO 3.3V rail to fully
   // settle before initializing the OLED SSD1306 charge pump.
-  // On battery power, the startup current spike (ESP32 boot + I2S mic
-  // + INMP441 + PN532 + fingerprint) can droop the 3.3V rail long
-  // enough to fail the OLED silently. 1500ms covers the worst case.
   delay(1500);
   Serial.println("[Boot] Power rails settled. Initializing peripherals...");
+  
+  #ifdef OLED_POWER_PIN
+    // Now give the OLED a sharp, fast 0V -> 3.3V power spike to ensure POR triggers.
+    digitalWrite(OLED_POWER_PIN, HIGH);
+    delay(200); // Give OLED 200ms to boot up
+  #endif
   // ─────────────────────────────────────────────────────────────────
+
+  // Software clear of I2C bus in case OLED got stuck during slow voltage ramp
+  I2C_ClearBus(21, 22);
+  Wire.begin(21, 22);
 
   // OLED — retry up to 5 times in case rail is still settling
   bool oledOk = false;
