@@ -88,6 +88,11 @@
                 <i class="fa-solid fa-microphone-lines w-6"></i>
                 <span class="font-medium ml-3">Voice Monitor</span>
             </a>
+            <a href="{{ url_for('asr_test') }}"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'asr_test' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
+                <i class="fa-solid fa-wand-magic-sparkles w-6"></i>
+                <span class="font-medium ml-3">Voice Tester</span>
+            </a>
             <a href="{{ url_for('settings') }}"
                 class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'settings' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
                 <i class="fa-solid fa-gear w-6"></i>

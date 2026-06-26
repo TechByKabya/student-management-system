@@ -67,6 +67,14 @@ def init_db():
         conn.execute("ALTER TABLE Students ADD COLUMN is_blacklisted INTEGER DEFAULT 0")
     except Exception:
         pass
+    try:
+        conn.execute("ALTER TABLE Admin ADD COLUMN asr_engine TEXT DEFAULT 'mlx'")
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE Admin ADD COLUMN google_api_key TEXT DEFAULT ''")
+    except Exception:
+        pass
 
     # Track which students have received an absence SMS per day (prevent duplicates)
     conn.execute('''
@@ -145,13 +153,18 @@ def get_admin_credentials():
     conn = get_db_connection()
     admin = conn.execute("SELECT * FROM Admin WHERE id = 1").fetchone()
     conn.close()
-    return dict(admin) if admin else {'username': 'admin', 'password': 'admin', 'teacher_rfid': ''}
+    if admin:
+        return dict(admin)
+    return {
+        'username': 'admin', 'password': 'admin', 'teacher_rfid': '', 
+        'asr_engine': 'mlx', 'google_api_key': ''
+    }
 
-def update_admin_credentials(username, password, teacher_rfid, sms_api_key='', sms_sender_id=''):
+def update_admin_credentials(username, password, teacher_rfid, sms_api_key='', sms_sender_id='', asr_engine='mlx', google_api_key=''):
     conn = get_db_connection()
     conn.execute(
-        "UPDATE Admin SET username = ?, password = ?, teacher_rfid = ?, sms_api_key = ?, sms_sender_id = ? WHERE id = 1",
-        (username, password, teacher_rfid, sms_api_key, sms_sender_id)
+        "UPDATE Admin SET username = ?, password = ?, teacher_rfid = ?, sms_api_key = ?, sms_sender_id = ?, asr_engine = ?, google_api_key = ? WHERE id = 1",
+        (username, password, teacher_rfid, sms_api_key, sms_sender_id, asr_engine, google_api_key)
     )
     conn.commit()
     conn.close()

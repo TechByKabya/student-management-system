@@ -74,21 +74,34 @@ def get_speaker_model():
     return _speaker_model
 
 def get_asr_model():
-    """Lazy-load OpenAI Whisper tiny model for phrase enforcement (offline, reliable)."""
+    """Lazy-load MLX Whisper module for phrase enforcement."""
     global _asr_model
     if _asr_model is not None:
         return _asr_model
     with _model_lock:
         if _asr_model is None:
             try:
-                import whisper
-                print("[Voice] Loading Whisper 'tiny' ASR model...")
-                _asr_model = whisper.load_model("tiny")
-                print("[Voice] Whisper ASR model loaded OK.")
+                import mlx_whisper
+                print("[Voice] Loading MLX Whisper 'medium' ASR model module...")
+                _asr_model = mlx_whisper
+                print("[Voice] MLX Whisper ASR module loaded OK.")
             except Exception as e:
-                print(f"[Voice] Error loading Whisper ASR model: {e}")
+                print(f"[Voice] Error loading MLX Whisper ASR module: {e}")
                 _asr_model = None
         return _asr_model
+
+def transcribe_audio(file_path: str) -> str:
+    # Always use MLX Whisper Large-v3
+    asr_model = get_asr_model()
+    if asr_model is None:
+        raise Exception("MLX Whisper module failed to load.")
+    result = asr_model.transcribe(
+        file_path,
+        path_or_hf_repo="mlx-community/whisper-medium-mlx",
+        language="en",
+        initial_prompt="Present Sir"
+    )
+    return result["text"].strip()
 
 def enhance_audio(file_path: str):
     """
@@ -524,7 +537,7 @@ def settings():
         teacher_rfid = request.form.get('teacher_rfid', '')
         sms_api_key  = request.form.get('sms_api_key', '').strip()
         sms_sender_id = request.form.get('sms_sender_id', '').strip()
-        update_admin_credentials(new_user, new_pass, teacher_rfid, sms_api_key, sms_sender_id)
+        update_admin_credentials(new_user, new_pass, teacher_rfid, sms_api_key, sms_sender_id, creds.get('asr_engine', 'mlx'), creds.get('google_api_key', ''))
         flash('Admin settings updated.', 'success')
         return redirect(url_for('settings'))
         
@@ -533,6 +546,37 @@ def settings():
                            teacher_rfid=creds.get('teacher_rfid', ''),
                            sms_api_key=sms_creds['api_key'],
                            sms_sender_id=sms_creds['sender_id'])
+
+@app.route('/asr_test', methods=['GET'])
+def asr_test():
+    if not session.get('logged_in'): 
+        return redirect(url_for('login'))
+    return render_template('asr_test.html')
+
+@app.route('/api/test_asr_upload', methods=['POST'])
+def api_test_asr_upload():
+    if not session.get('logged_in'): 
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+        
+    audio_file = request.files['audio']
+    if audio_file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+        
+    ext = os.path.splitext(audio_file.filename)[1]
+    if not ext:
+        ext = '.wav'
+    temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f'test_asr{ext}')
+    audio_file.save(temp_path)
+    
+    # Run the transcription
+    try:
+        transcription = transcribe_audio(temp_path)
+        return jsonify({'success': True, 'transcription': transcription})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/delete_student/<int:student_id>', methods=['POST'])
 def delete_student_route(student_id):
@@ -1172,26 +1216,23 @@ def esp32_voice_submit():
         })
 
     # --- Step 1: ASR Enforced Phrase Check ---
-    asr_model = get_asr_model()
-    if asr_model is not None:
-        try:
-            # initial_prompt biases Whisper toward the expected vocabulary —
-            # dramatically improves accuracy for a specific known phrase.
-            result = asr_model.transcribe(
-                file_path,
-                fp16=False,
-                language="en",
-                initial_prompt="Present Sir"
-            )
-            transcription = result["text"].strip().lower()
-            print(f"[Voice] Transcribed phrase for {student['name']}: '{transcription}'")
+    try:
+        transcription = transcribe_audio(file_path).lower()
+        print(f"[Voice] Transcribed phrase for {student['name']}: '{transcription}'")
+    except Exception as ex:
+        print(f"[Voice] ASR Transcription failed: {ex}")
+        transcription = ""
+
+    if transcription:
 
             # Fuzzy keyword check: accept "present", "presence", "presents",
-            # or any word starting with "pres" (min 5 chars) to handle accent variations.
+            # or any word starting with "pres", "prez", "priz" to handle Bangladeshi accent variations.
+            # We also accept "sir" directly, since sometimes Whisper misses the first word entirely.
             words = transcription.split()
+            allowed_prefixes = ("pres", "prez", "priz", "pras", "pray")
             phrase_ok = any(
-                w == "present" or w == "presence" or w == "presents" or
-                (w.startswith("pres") and len(w) >= 5)
+                w in ("present", "presence", "presents", "sir", "yes", "shir") or
+                any(w.startswith(prefix) and len(w) >= 4 for prefix in allowed_prefixes)
                 for w in words
             )
 
@@ -1205,10 +1246,6 @@ def esp32_voice_submit():
                     'student_name': student['name'],
                     'note': f"wrong_phrase_heard_{transcription}"
                 })
-        except Exception as ex:
-            print(f"[Voice] ASR Transcription failed: {ex}")
-
-
     # --- Cross-match against all OTHER voice recordings from today ---
     # exclude_proxy=True: proxy-flagged voices are kept in DB/disk for review,
     # but must NOT be used as comparison targets — they would falsely flag
