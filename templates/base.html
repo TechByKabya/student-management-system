@@ -18,6 +18,34 @@
             background-color: #f3f4f6;
         }
 
+        /* ── Global Animated Background ── */
+        .bg-showcase-global {
+            background: linear-gradient(-45deg, #f8fafc, #eef2ff, #f0fdfa, #f5f3ff);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            position: relative;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Decorational tech rings for the background */
+        .tech-ring-global {
+            position: fixed;
+            border-radius: 50%;
+            border: 1px solid rgba(79, 70, 229, 0.05); /* very subtle indigo */
+            pointer-events: none;
+            z-index: 0;
+        }
+        .trg-1 { width: 500px; height: 500px; top: 0; right: -100px; border-width: 2px; }
+        .trg-2 { width: 800px; height: 800px; bottom: -200px; left: 100px; border-width: 1px; border-style: dashed; animation: spin-slow 40s linear infinite; }
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         .glass-panel {
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: blur(10px);
@@ -48,80 +76,86 @@
 
     {% if session.get('logged_in') %}
     <!-- Sidebar Navigation -->
-    <aside class="w-64 bg-indigo-700 text-white flex flex-col shadow-2xl z-20 transition-all duration-300">
-        <div class="h-16 flex items-center justify-center border-b border-indigo-600 font-bold text-xl tracking-wider">
-            <i class="fa-solid fa-graduation-cap mr-2"></i> Team X (DIU)
+    <aside id="sidebar" class="w-64 bg-indigo-700 text-white flex flex-col shadow-2xl z-20 transition-all duration-300 relative overflow-hidden flex-shrink-0">
+        <div class="h-16 flex items-center justify-center border-b border-indigo-600 font-bold text-xl tracking-wider relative z-10 whitespace-nowrap">
+            <i class="fa-solid fa-graduation-cap"></i> 
+            <span class="nav-text ml-2 transition-opacity duration-300">Team X (DIU)</span>
         </div>
-        <nav class="flex-1 py-6 space-y-2 px-4">
-            <a href="{{ url_for('dashboard') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'dashboard' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-chart-pie w-6"></i>
-                <span class="font-medium ml-3">Dashboard</span>
+        <nav class="flex-1 py-6 space-y-2 px-4 relative z-10 overflow-x-hidden">
+            <a href="{{ url_for('dashboard') }}" title="Dashboard"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'dashboard' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-chart-pie w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Dashboard</span>
             </a>
-            <a href="{{ url_for('attendance_log') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'attendance_log' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-clock-rotate-left w-6"></i>
-                <span class="font-medium ml-3">Daily Logs</span>
+            <a href="{{ url_for('attendance_log') }}" title="Daily Logs"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'attendance_log' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-clock-rotate-left w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Daily Logs</span>
             </a>
-            <a href="{{ url_for('students') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'students' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-users w-6"></i>
-                <span class="font-medium ml-3">Students</span>
+            <a href="{{ url_for('students') }}" title="Students"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'students' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-users w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Students</span>
             </a>
-            <a href="{{ url_for('enroll') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'enroll' or request.endpoint == 'enroll_sensors' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-user-plus w-6"></i>
-                <span class="font-medium ml-3">Enroll New</span>
+            <a href="{{ url_for('enroll') }}" title="Enroll New"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'enroll' or request.endpoint == 'enroll_sensors' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-user-plus w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Enroll New</span>
             </a>
-            <a href="{{ url_for('grading') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'grading' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-file-signature w-6"></i>
-                <span class="font-medium ml-3">Grading</span>
+
+            <a href="{{ url_for('ai_dashboard') }}" title="AI Monitor"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'ai_dashboard' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-brain w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">AI Monitor</span>
             </a>
-            <a href="{{ url_for('ai_dashboard') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'ai_dashboard' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-brain w-6"></i>
-                <span class="font-medium ml-3">AI Monitor</span>
+            <a href="{{ url_for('voice_monitor') }}" title="Voice Monitor"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'voice_monitor' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-microphone-lines w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Voice Monitor</span>
             </a>
-            <a href="{{ url_for('voice_monitor') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'voice_monitor' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-microphone-lines w-6"></i>
-                <span class="font-medium ml-3">Voice Monitor</span>
+            <a href="{{ url_for('asr_test') }}" title="Voice Tester"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'asr_test' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-wand-magic-sparkles w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Voice Tester</span>
             </a>
-            <a href="{{ url_for('asr_test') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'asr_test' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-wand-magic-sparkles w-6"></i>
-                <span class="font-medium ml-3">Voice Tester</span>
-            </a>
-            <a href="{{ url_for('settings') }}"
-                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'settings' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %}">
-                <i class="fa-solid fa-gear w-6"></i>
-                <span class="font-medium ml-3">Settings</span>
+            <a href="{{ url_for('settings') }}" title="Settings"
+                class="flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-indigo-600 {% if request.endpoint == 'settings' %}bg-indigo-800 border-l-4 border-indigo-300{% endif %} whitespace-nowrap">
+                <i class="fa-solid fa-gear w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text font-medium ml-3 transition-opacity duration-300">Settings</span>
             </a>
         </nav>
-        <div class="p-4 border-t border-indigo-600">
-            <a href="{{ url_for('logout') }}"
+        <div class="p-4 border-t border-indigo-600 relative z-10 whitespace-nowrap overflow-x-hidden">
+            <a href="{{ url_for('logout') }}" title="Logout"
                 class="flex items-center px-4 py-2 text-indigo-200 hover:text-white transition-colors">
-                <i class="fa-solid fa-right-from-bracket w-6"></i>
-                <span class="ml-3">Logout</span>
+                <i class="fa-solid fa-right-from-bracket w-6 flex-shrink-0 text-center"></i>
+                <span class="nav-text ml-3 transition-opacity duration-300">Logout</span>
             </a>
         </div>
     </aside>
     {% endif %}
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col h-screen overflow-y-auto relative bg-gradient-to-br from-gray-50 to-gray-200">
+    <main id="main-content" class="flex-1 flex flex-col h-screen overflow-y-auto bg-showcase-global relative">
+        <!-- Floating decorational rings -->
+        <div class="tech-ring-global trg-1"></div>
+        <div class="tech-ring-global trg-2"></div>
+
         <!-- Optional Top Header -->
         {% if session.get('logged_in') %}
-        <header class="h-16 bg-white shadow-sm flex items-center px-8 justify-between z-10 sticky top-0">
-            <h2 class="text-xl font-semibold text-gray-700 capitalize">
-                {{ request.endpoint.replace('_', ' ') }}
-            </h2>
+        <header class="h-16 bg-white/60 backdrop-blur-md border-b border-gray-200/60 shadow-sm flex items-center px-8 justify-between z-10 sticky top-0">
+            <div class="flex items-center gap-4">
+                <button id="sidebar-toggle" class="text-gray-500 hover:text-indigo-600 transition-colors bg-white/80 border border-gray-200 rounded-lg w-9 h-9 flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <h2 class="text-xl font-bold text-gray-800 capitalize tracking-tight">
+                    {{ request.endpoint.replace('_', ' ') }}
+                </h2>
+            </div>
             <div class="flex items-center space-x-4">
-                <span class="text-sm text-gray-500 font-mono bg-gray-100 px-3 py-1 rounded"><i
-                        class="fa-solid fa-clock mr-1"></i> <span id="clock"></span></span>
-                <div
-                    class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner">
+                <span class="text-sm text-indigo-700 font-mono bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg shadow-sm">
+                    <i class="fa-solid fa-clock mr-1 opacity-70"></i> <span id="clock"></span>
+                </span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-md">
                     <i class="fa-solid fa-user-tie"></i>
                 </div>
             </div>
@@ -133,18 +167,9 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
             {% for category, message in messages %}
-            <div class="fade-in p-4 rounded-lg shadow-xl flex items-start 
-                            {% if category == 'error' %}bg-red-50 text-red-800 border-l-4 border-red-500
-                            {% elif category == 'success' %}bg-green-50 text-green-800 border-l-4 border-green-500
-                            {% else %}bg-blue-50 text-blue-800 border-l-4 border-blue-500{% endif %}">
-                <i
-                    class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% elif category == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %} mt-1 mr-3 text-lg"></i>
-                <div>
-                    <p class="text-sm font-semibold">{{ message }}</p>
-                </div>
-                <button onclick="this.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+            <div class="p-4 rounded-lg shadow-lg flex items-center {% if category == 'success' %}bg-green-100 text-green-800 border-l-4 border-green-500{% elif category == 'danger' %}bg-red-100 text-red-800 border-l-4 border-red-500{% else %}bg-blue-100 text-blue-800 border-l-4 border-blue-500{% endif %}">
+                <i class="fa-solid {% if category == 'success' %}fa-check-circle{% elif category == 'danger' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %} text-xl mr-3"></i>
+                <span class="font-medium">{{ message }}</span>
             </div>
             {% endfor %}
             {% endif %}
@@ -152,7 +177,7 @@
         </div>
 
         <!-- Page Content -->
-        <div class="p-8 flex-1 fade-in max-w-7xl mx-auto w-full">
+        <div class="p-8 flex-1 fade-in max-w-7xl mx-auto w-full relative">
             {% block content %}{% endblock %}
         </div>
     </main>
@@ -177,6 +202,32 @@
                 setTimeout(() => f.remove(), 500);
             });
         }, 5000);
+
+        // Sidebar Toggle Logic
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const navTexts = document.querySelectorAll('.nav-text');
+
+        if (sidebarToggle && sidebar) {
+            sidebarToggle.addEventListener('click', () => {
+                const isCollapsed = sidebar.classList.contains('w-20');
+                if (isCollapsed) {
+                    sidebar.classList.remove('w-20');
+                    sidebar.classList.add('w-64');
+                    navTexts.forEach(el => {
+                        el.style.opacity = '0';
+                        el.style.display = 'inline';
+                        setTimeout(() => el.style.opacity = '1', 50);
+                    });
+                } else {
+                    sidebar.classList.remove('w-64');
+                    sidebar.classList.add('w-20');
+                    navTexts.forEach(el => {
+                        el.style.opacity = '0';
+                        setTimeout(() => el.style.display = 'none', 300);
+                    });
+                }
+        // Mesh animation removed as per user request
     </script>
     {% block scripts %}{% endblock %}
 </body>

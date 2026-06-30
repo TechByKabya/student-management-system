@@ -327,6 +327,28 @@ def get_all_attendance_logs():
     conn.close()
     return [dict(row) for row in logs]
 
+def get_unique_attendance_dates():
+    conn = get_db_connection()
+    dates = conn.execute('''
+        SELECT DISTINCT date(timestamp, 'localtime') as local_date
+        FROM AttendanceLogs
+        ORDER BY local_date DESC
+    ''').fetchall()
+    conn.close()
+    return [row['local_date'] for row in dates]
+
+def get_attendance_logs_by_date(target_date: str):
+    conn = get_db_connection()
+    logs = conn.execute('''
+        SELECT a.id, a.student_id, s.name, s.school_id, a.sensor_type, datetime(a.timestamp, 'localtime') as local_time, date(a.timestamp, 'localtime') as local_date
+        FROM AttendanceLogs a
+        JOIN Students s ON a.student_id = s.id
+        WHERE date(a.timestamp, 'localtime') = ?
+        ORDER BY a.timestamp DESC
+    ''', (target_date,)).fetchall()
+    conn.close()
+    return [dict(row) for row in logs]
+
 def delete_attendance_log(log_id: int):
     conn = get_db_connection()
     conn.execute("DELETE FROM AttendanceLogs WHERE id = ?", (log_id,))

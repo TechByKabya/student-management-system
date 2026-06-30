@@ -1,121 +1,229 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<style>
+    :root {
+        --brand:        #4f46e5;
+        --brand-light:  #eef2ff;
+        --brand-mid:    #818cf8;
+        --success:      #059669;
+        --success-bg:   #ecfdf5;
+        --danger:       #dc2626;
+        --danger-bg:    #fef2f2;
+        --surface:      #ffffff;
+        --surface-2:    #f8fafc;
+        --border:       #e2e8f0;
+        --text-primary: #0f172a;
+        --text-muted:   #64748b;
+        --text-faint:   #94a3b8;
+        --radius:       14px;
+        --shadow-card:  0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+    }
+
+    .page-title { font-size: 1.6rem; font-weight: 900; color: var(--text-primary); margin: 0; }
+    .page-subtitle { font-size: .82rem; color: var(--text-muted); margin: .25rem 0 0; }
+
+    .control-panel {
+        display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+
+    .date-navigation {
+        display: flex; align-items: center; gap: .5rem; background: var(--surface);
+        padding: .4rem; border-radius: 10px; border: 1px solid var(--border);
+        box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    }
+    
+    .btn-nav {
+        width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; color: var(--text-muted); text-decoration: none; transition: all .15s;
+    }
+    .btn-nav:hover:not(.disabled) { background: var(--surface-2); color: var(--brand); }
+    .btn-nav.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+    
+    .date-picker-input {
+        border: none; outline: none; background: transparent; font-weight: 700; color: var(--text-primary);
+        font-family: inherit; font-size: .85rem; cursor: pointer; text-align: center;
+    }
+    .date-picker-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
+
+    .btn-download {
+        display: inline-flex; align-items: center; gap: 8px; padding: .55rem 1.1rem;
+        background: var(--surface); color: var(--brand);
+        border: 1px solid var(--border); border-radius: 10px;
+        font-size: .8rem; font-weight: 700; cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: all .15s;
+    }
+    .btn-download:hover { background: var(--brand-light); border-color: var(--brand-mid); transform: translateY(-1px); }
+
+    .empty-state {
+        background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
+        padding: 4rem 2rem; text-align: center; color: var(--text-muted); box-shadow: var(--shadow-card);
+    }
+    .empty-icon { font-size: 2.5rem; color: var(--border); margin-bottom: 1rem; }
+
+    .log-group {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-card);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    .log-group-header {
+        background: var(--surface-2);
+        padding: 1rem 1.5rem;
+        display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+    }
+    .log-group-header h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: .75rem; }
+    .status-badge {
+        font-size: .65rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; letter-spacing: .05em; text-transform: uppercase;
+    }
+    .status-open { background: var(--success-bg); color: var(--success); }
+    .status-closed { background: var(--danger-bg); color: var(--danger); }
+    
+    .scan-count { font-size: .75rem; font-weight: 700; color: var(--brand); background: var(--brand-light); padding: 4px 12px; border-radius: 20px; }
+    
+    .table-wrapper { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: .8rem 1.5rem; font-size: .7rem; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+    td { padding: .8rem 1.5rem; font-size: .8rem; color: var(--text-primary); border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface-2); }
+
+    .method-badge {
+        display: inline-flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 700;
+        padding: 4px 10px; border-radius: 8px;
+    }
+    .method-rfid { background: #e0f2fe; color: #0369a1; }
+    .method-fingerprint { background: var(--success-bg); color: var(--success); }
+    .method-other { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+    
+    .btn-delete { color: var(--text-faint); cursor: pointer; transition: color .15s; background: none; border: none; font-size: .9rem; padding: 5px; }
+    .btn-delete:hover { color: var(--danger); }
+
+    /* Print Styles */
+    @media print {
+        body { background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        aside, header, #flash-container, .print-hidden { display: none !important; }
+        main { padding: 0 !important; margin: 0 !important; background: white !important; }
+        .log-group { border: 1px solid #e2e8f0 !important; box-shadow: none !important; margin-bottom: 2rem !important; }
+        .log-group-header { background: #f8fafc !important; border-bottom: 2px solid #e2e8f0 !important; }
+    }
+</style>
+
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
+    
+    <div class="control-panel" style="margin-bottom: .75rem;">
         <div>
-            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Daily Attendance Logs</h2>
-            <p class="text-gray-500 mt-2 text-lg">Detailed history of all student check-ins.</p>
+            <h1 class="page-title">Attendance Logs</h1>
+            <p class="page-subtitle">Historical records of campus entry & exit events.</p>
         </div>
-        <div class="flex gap-3 items-center">
-            {% if grouped_logs %}
-            <select id="report-date-select"
-                class="bg-white border text-sm border-gray-300 text-gray-700 py-2 pl-3 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none shadow-sm print-hidden">
-                <option value="all">All Dates</option>
-                {% for date in grouped_logs.keys() %}
-                <option value="{{ date }}">{{ date }}</option>
-                {% endfor %}
-            </select>
-            {% endif %}
-            <button onclick="generatePDFReport()"
-                class="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-semibold shadow-sm hover:bg-indigo-100 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 transform hover:-translate-y-0.5 shrink-0 print-hidden whitespace-nowrap">
-                <i class="fa-solid fa-file-pdf mr-2"></i> Download PDF
+        
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            
+            <div class="date-navigation print-hidden">
+                <a href="{% if prev_date %}{{ url_for('attendance_log', date=prev_date) }}{% else %}#{% endif %}" class="btn-nav {% if not prev_date %}disabled{% endif %}" title="Previous Date">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+                
+                <input type="date" id="date-picker" class="date-picker-input" value="{{ current_date }}" max="{{ all_dates[0] if all_dates else current_date }}">
+                
+                <a href="{% if next_date %}{{ url_for('attendance_log', date=next_date) }}{% else %}#{% endif %}" class="btn-nav {% if not next_date %}disabled{% endif %}" title="Next Date">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </div>
+            
+            <button onclick="generatePDFReport()" class="btn-download print-hidden">
+                <i class="fa-solid fa-file-pdf"></i> Download PDF
             </button>
         </div>
     </div>
 
-    {% if not grouped_logs %}
-    <div class="glass-panel text-center p-12 rounded-2xl shadow-sm border border-gray-100" id="attendance-empty">
-        <i class="fa-solid fa-clock-rotate-left text-5xl text-gray-300 mb-4"></i>
-        <h3 class="text-lg font-bold text-gray-900 mb-1">No Attendance Data Found</h3>
-        <p class="text-gray-500">Wait for students to scan their devices to see logs here.</p>
+    <!-- Quick Access Pills -->
+    {% if all_dates %}
+    <div class="quick-dates print-hidden" style="display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center;">
+        <span style="font-size: .65rem; font-weight: 800; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; margin-right: .2rem;"><i class="fa-solid fa-clock-rotate-left"></i> Recent:</span>
+        {% for d in all_dates[:7] %}
+        <a href="{{ url_for('attendance_log', date=d) }}" 
+           style="padding: .35rem .9rem; border-radius: 20px; font-size: .75rem; font-weight: 700; text-decoration: none; transition: all .15s; border: 1px solid {% if d == current_date %}var(--brand){% else %}var(--border){% endif %};
+                  {% if d == current_date %}background: var(--brand); color: #fff; box-shadow: 0 4px 12px rgba(79,70,229,.3);{% else %}background: var(--surface); color: var(--text-muted);{% endif %}">
+            {{ d.split('-')[2] }}/{{ d.split('-')[1] }}
+        </a>
+        {% endfor %}
     </div>
-    <div id="attendance-container" class="space-y-8"></div>
+    {% endif %}
+
+    {% if not logs %}
+    <div class="empty-state" id="attendance-empty">
+        <i class="fa-solid fa-clipboard-list empty-icon"></i>
+        <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin: 0 0 .5rem;">No Records for {{ current_date }}</h3>
+        <p style="margin: 0;">Logs will appear here once students check in via the terminal on this date.</p>
+    </div>
+    <div id="attendance-container"></div>
+    
     {% else %}
-    <div class="space-y-8" id="attendance-container">
-        {% for date, logs in grouped_logs.items() %}
-        <details class="glass-panel rounded-2xl shadow-xl overflow-hidden mb-6 group bg-white/40 print-block"
-            data-date="{{ date }}" {% if loop.first %}open{% endif %}>
+    <div id="attendance-container">
+        <div class="log-group print-block" id="current-log-group">
             <!-- Date Header -->
-            <summary
-                class="bg-indigo-600 px-6 py-4 flex items-center justify-between cursor-pointer list-none appearance-none hover:bg-indigo-700 transition print-header">
-                <h3 class="text-xl font-bold text-white flex items-center">
-                    <i class="fa-solid fa-calendar-day mr-3 text-indigo-200"></i>
-                    {{ date }}
-                    {% if status_map.get(date) == 1 %}
-                    <span
-                        class="ml-4 text-xs font-bold px-2 py-1 bg-emerald-500 rounded text-white tracking-widest uppercase shadow-sm">Open</span>
+            <div class="log-group-header print-header">
+                <h3>
+                    <i class="fa-solid fa-calendar-day" style="color: var(--brand-mid);"></i>
+                    {{ current_date }}
+                    {% if current_status == 1 %}
+                    <span class="status-badge status-open">Open</span>
                     {% else %}
-                    <span
-                        class="ml-4 text-xs font-bold px-2 py-1 bg-red-500 rounded text-white tracking-widest uppercase shadow-sm">Closed</span>
+                    <span class="status-badge status-closed">Closed</span>
                     {% endif %}
                 </h3>
-                <div class="flex items-center text-white">
-                    <span class="bg-indigo-800 text-indigo-100 text-sm font-semibold px-3 py-1 rounded-full mr-4">
-                        {{ logs|length }} Scans
-                    </span>
-                    <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180 print-hidden"></i>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="scan-count">{{ logs|length }} Entries</span>
                 </div>
-            </summary>
+            </div>
 
             <!-- Table -->
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50/80 backdrop-blur-sm">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
                         <tr>
-                            <th scope="col"
-                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                Time</th>
-                            <th scope="col"
-                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                Student Name</th>
-                            <th scope="col"
-                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                Roll No. (SID)</th>
-                            <th scope="col"
-                                class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                Method</th>
-                            <th scope="col"
-                                class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider print-hidden">
-                                Actions</th>
+                            <th>Time</th>
+                            <th>Student Profile</th>
+                            <th>ID Number</th>
+                            <th>Validation Method</th>
+                            <th class="print-hidden" style="text-align: right;">Action</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white/60 divide-y divide-gray-100 backdrop-blur-md">
+                    <tbody>
                         {% for log in logs %}
-                        <tr class="hover:bg-indigo-50/50 transition-colors">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
+                        <tr>
+                            <td style="font-family: monospace; font-weight: 600; color: var(--text-muted);">
                                 {{ log.local_time.split(' ')[1] }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-bold text-gray-900">{{ log.name }}</div>
+                            <td>
+                                <strong style="color: var(--text-primary);">{{ log.name }}</strong>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">
+                            <td style="font-family: monospace; color: var(--text-faint);">
                                 {{ log.school_id }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td>
                                 {% if log.sensor_type == 'rfid' %}
-                                <span
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                                    <i class="fa-solid fa-id-card mr-1"></i> RFID
+                                <span class="method-badge method-rfid">
+                                    <i class="fa-solid fa-id-card"></i> RFID Card
                                 </span>
                                 {% elif log.sensor_type == 'fingerprint' %}
-                                <span
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                                    <i class="fa-solid fa-fingerprint mr-1"></i> Fingerprint
+                                <span class="method-badge method-fingerprint">
+                                    <i class="fa-solid fa-fingerprint"></i> Biometric
                                 </span>
                                 {% else %}
-                                <span
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800">
+                                <span class="method-badge method-other">
                                     {{ log.sensor_type }}
                                 </span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm print-hidden">
+                            <td class="print-hidden" style="text-align: right;">
                                 <form action="{{ url_for('delete_attendance_route', log_id=log.id) }}" method="POST"
-                                    class="inline" onsubmit="return confirm('Delete this log entry?');">
-                                    <button type="submit"
-                                        class="text-red-400 hover:text-red-600 p-2 rounded hover:bg-red-50 transition-colors"
-                                        title="Delete Log">
+                                    style="display: inline; margin: 0;" onsubmit="return confirm('Permanently delete this entry?');">
+                                    <button type="submit" class="btn-delete" title="Delete Record">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </form>
@@ -125,8 +233,7 @@
                     </tbody>
                 </table>
             </div>
-        </details>
-        {% endfor %}
+        </div>
     </div>
     {% endif %}
 </div>
@@ -134,197 +241,99 @@
 
 {% block scripts %}
 <script>
-    // Seamless Real-Time Polling for new attendance logs
-    setInterval(function () {
-        fetch(window.location.href)
-            .then(response => response.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newContainer = doc.getElementById('attendance-container');
-                const oldContainer = document.getElementById('attendance-container');
+    // Handle Date Picker Change
+    document.getElementById('date-picker').addEventListener('change', function(e) {
+        if (this.value) {
+            window.location.href = "{{ url_for('attendance_log') }}?date=" + this.value;
+        }
+    });
 
-                if (newContainer && oldContainer) {
-                    const oldRows = oldContainer.querySelectorAll('tbody tr').length;
-                    const newRows = newContainer.querySelectorAll('tbody tr').length;
+    // Seamless Real-Time Polling for new attendance logs (only if viewing today's date)
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewingDate = urlParams.get('date');
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (!viewingDate || viewingDate === today) {
+        setInterval(function () {
+            fetch(window.location.href)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newContainer = doc.getElementById('attendance-container');
+                    const oldContainer = document.getElementById('attendance-container');
 
-                    // Only update DOM if new lines were added by ESP32 real-time scanning
-                    if (newRows > oldRows) {
-                        // Hide empty state if it was there
-                        const emptyState = document.getElementById('attendance-empty');
-                        if (emptyState) emptyState.style.display = 'none';
+                    if (newContainer && oldContainer) {
+                        const oldRows = oldContainer.querySelectorAll('tbody tr').length;
+                        const newRows = newContainer.querySelectorAll('tbody tr').length;
 
-                        // Save open toggle states
-                        const openStates = {};
-                        oldContainer.querySelectorAll('details').forEach(d => {
-                            openStates[d.getAttribute('data-date')] = d.open;
-                        });
+                        // Only update DOM if new lines were added by ESP32 real-time scanning
+                        if (newRows > oldRows) {
+                            // Hide empty state if it was there
+                            const emptyState = document.getElementById('attendance-empty');
+                            if (emptyState) emptyState.style.display = 'none';
 
-                        // Inject fresh HTML
-                        oldContainer.innerHTML = newContainer.innerHTML;
+                            // Inject fresh HTML
+                            oldContainer.innerHTML = newContainer.innerHTML;
 
-                        // Restore open toggle states
-                        document.querySelectorAll('#attendance-container details').forEach(d => {
-                            const date = d.getAttribute('data-date');
-                            if (openStates[date] !== undefined) {
-                                d.open = openStates[date];
+                            // Show a toast notification
+                            const flashContainer = document.getElementById('flash-container');
+                            if (flashContainer) {
+                                const toast = document.createElement('div');
+                                toast.style = "padding: 1rem; border-radius: 12px; background: var(--brand); color: #fff; display: flex; align-items: center; gap: 1rem; box-shadow: 0 8px 32px rgba(0,0,0,0.2); margin-bottom: .5rem; font-size: .85rem; font-weight: 700; transition: opacity .3s;";
+                                toast.innerHTML = `
+                                <i class="fa-solid fa-bolt text-lg"></i>
+                                <div>Live Update: New access record synchronized.</div>
+                                <button onclick="this.parentElement.remove()" style="margin-left: auto; background: none; border: none; color: #fff; cursor: pointer; opacity: .7;">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                                `;
+                                flashContainer.appendChild(toast);
+                                setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
                             }
-                        });
-
-                        // Show a toast notification
-                        const flashContainer = document.getElementById('flash-container');
-                        if (flashContainer) {
-                            const toast = document.createElement('div');
-                            toast.className = "fade-in p-4 rounded-lg shadow-xl flex items-start bg-blue-50 text-blue-800 border-l-4 border-blue-500 mb-2";
-                            toast.innerHTML = `
-                            <i class="fa-solid fa-wifi mt-1 mr-3 text-lg animate-pulse"></i>
-                            <div><p class="text-sm font-semibold">Live Update: New attendance record synced from ESP32!</p></div>
-                            <button onclick="this.parentElement.remove()" class="ml-auto text-blue-400 hover:text-blue-600">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        `;
-                            flashContainer.appendChild(toast);
-                            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 4000);
                         }
                     }
-                }
-            });
-    }, 2500); // Pulse every 2.5s
+                });
+        }, 2500); // Pulse every 2.5s
+    }
 </script>
-<script>
-    // Open requested details block for printing, hide others
-    function generatePDFReport() {
-        const dateSelect = document.getElementById('report-date-select');
-        const selectedDate = dateSelect ? dateSelect.value : 'all';
-        const container = document.getElementById('attendance-container');
 
+<!-- Using html2pdf library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    // Print current date's report
+    function generatePDFReport() {
+        const container = document.getElementById('current-log-group');
         if (!container) return;
 
-        // Temporarily modify the UI for PDF layout
-        const originalStates = [];
-        const detailsElements = container.querySelectorAll('details');
-
-        // Hide print-hidden elements manually since html2pdf might not respect the CSS fully sometimes
         const hideElements = document.querySelectorAll('.print-hidden');
         hideElements.forEach(el => el.style.display = 'none');
 
-        // Setup details elements based on selection
-        detailsElements.forEach(details => {
-            const date = details.getAttribute('data-date');
-            originalStates.push({
-                element: details,
-                display: details.style.display,
-                open: details.open
-            });
-
-            if (selectedDate === 'all' || selectedDate === date) {
-                details.style.display = 'block';
-                details.open = true; // Must be open to be rendered in the PDF
-            } else {
-                details.style.display = 'none';
-            }
-        });
-
-        // Add a temporary title for the PDF
         const titleContainer = document.createElement('div');
-        titleContainer.className = 'text-center mb-8 pb-4 border-b-2 border-gray-200';
+        titleContainer.style = 'text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e2e8f0;';
         titleContainer.innerHTML = `
-            <h1 style="font-size: 24pt; font-weight: bold; color: #4F46E5;">Team X Attendance Report</h1>
-            <p style="font-size: 14pt; color: #6B7280; margin-top: 8px;">Date: ${selectedDate === 'all' ? 'All Records' : selectedDate}</p>
+            <h1 style="font-size: 24pt; font-weight: 900; color: #0f172a; margin: 0;">Campus Access Report</h1>
+            <p style="font-size: 14pt; color: #64748b; margin-top: 8px;">Date: {{ current_date }}</p>
         `;
-        container.insertBefore(titleContainer, container.firstChild);
+        
+        // Wrap container for printing
+        const wrapper = document.createElement('div');
+        wrapper.style.backgroundColor = '#ffffff';
+        wrapper.style.padding = '20px';
+        wrapper.appendChild(titleContainer);
+        wrapper.appendChild(container.cloneNode(true));
 
         const opt = {
             margin: [15, 15, 15, 15],
-            filename: `Attendance_Report_${selectedDate}.pdf`,
+            filename: `Access_Report_{{ current_date }}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // Create a wrapper to control the background explicitly for the PDF
-        const wrapper = document.createElement('div');
-        wrapper.style.backgroundColor = '#ffffff';
-        wrapper.style.padding = '20px';
-
-        // Clone the container to avoid messing with the live DOM too much during rendering
-        wrapper.appendChild(container.cloneNode(true));
-
         html2pdf().set(opt).from(wrapper).save().then(() => {
-            // Restore UI
-            titleContainer.remove();
             hideElements.forEach(el => el.style.display = '');
-            originalStates.forEach(state => {
-                state.element.style.display = state.display;
-                state.element.open = state.open;
-            });
         });
     }
 </script>
-<style>
-    /* Reset summary arrows for Safari/Chrome */
-    details>summary::-webkit-details-marker {
-        display: none;
-    }
-
-    /* Print Styles */
-    @media print {
-        body {
-            background-color: white !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        aside,
-        header,
-        #flash-container,
-        .print-hidden {
-            display: none !important;
-        }
-
-        main {
-            padding: 0 !important;
-            margin: 0 !important;
-            background: white !important;
-        }
-
-        .glass-panel {
-            background: none;
-            border: none;
-            box-shadow: none;
-        }
-
-        .print-block {
-            display: block !important;
-            margin-bottom: 30px !important;
-            border: 1px solid #e5e7eb !important;
-            border-radius: 8px !important;
-        }
-
-        .print-header {
-            background-color: #f3f4f6 !important;
-            color: #111827 !important;
-            border-bottom: 2px solid #d1d5db !important;
-        }
-
-        .print-header h3,
-        .print-header i {
-            color: #111827 !important;
-        }
-
-        .print-header span {
-            background-color: #e5e7eb !important;
-            color: #374151 !important;
-            border: 1px solid #9ca3af !important;
-        }
-
-        details {
-            display: block !important;
-        }
-
-        details>div {
-            display: block !important;
-        }
-    }
-</style>
 {% endblock %}

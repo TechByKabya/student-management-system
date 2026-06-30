@@ -1,335 +1,284 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Proxy Monitor | Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body {
-            background-color: #f8fafc;
-            color: #1e293b;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        }
+{% extends 'base.html' %}
 
-        .card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            border-radius: 12px;
-        }
+{% block content %}
+<style>
+    :root {
+        --brand:        #4f46e5;
+        --brand-light:  #eef2ff;
+        --brand-mid:    #818cf8;
+        --success:      #059669;
+        --success-bg:   #ecfdf5;
+        --danger:       #dc2626;
+        --danger-bg:    #fef2f2;
+        --warning:      #d97706;
+        --warning-bg:   #fffbeb;
+        --surface:      #ffffff;
+        --surface-2:    #f8fafc;
+        --border:       #e2e8f0;
+        --text-primary: #0f172a;
+        --text-muted:   #64748b;
+        --text-faint:   #94a3b8;
+        --radius:       14px;
+        --shadow-card:  0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+    }
 
-        .alert-row {
-            animation: slideIn 0.3s ease-out;
-            border-left: 4px solid #10b981;
-            background: #f8fafc;
-            margin-bottom: 8px;
-            padding: 12px 16px;
-            border-radius: 6px;
-            border-top: 1px solid #f1f5f9;
-            border-right: 1px solid #f1f5f9;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        
-        .alert-row.proxy {
-            border-left: 4px solid #ef4444;
-            background: #fef2f2;
-            border-top: 1px solid #fee2e2;
-            border-right: 1px solid #fee2e2;
-            border-bottom: 1px solid #fee2e2;
-        }
+    .page-title { font-size: 1.6rem; font-weight: 900; color: var(--text-primary); margin: 0; }
+    .page-subtitle { font-size: .82rem; color: var(--text-muted); margin: .25rem 0 0; }
 
-        @keyframes slideIn {
-            from { transform: translateY(-10px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+    .card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-card);
+    }
 
-        /* Subtle pulse for hardware status */
-        .status-pulse {
-            animation: pulse-soft 2s infinite;
-        }
-        @keyframes pulse-soft {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-    </style>
-</head>
-<body class="p-8">
+    /* Stat tiles */
+    .stat-tile {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-card);
+        padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: .35rem;
+    }
+    .stat-tile .label { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+    .stat-tile .value { font-size: 2rem; font-weight: 900; color: var(--text-primary); line-height: 1; }
+    .stat-tile .sub   { font-size: .75rem; color: var(--text-muted); }
 
-    <div class="max-w-7xl mx-auto flex flex-col gap-8">
-        
-        <!-- Top: System Architecture Visualization -->
-        <div class="card p-8">
-            <div class="flex justify-between items-center mb-6">
+    /* Live status dot */
+    .live-dot {
+        width: 8px; height: 8px; border-radius: 50%; background: var(--success);
+        animation: live-pulse 1.8s infinite;
+    }
+    @keyframes live-pulse {
+        0%,100% { box-shadow: 0 0 0 0 rgba(5,150,105,.6); }
+        50%      { box-shadow: 0 0 0 6px rgba(5,150,105,0); }
+    }
+
+    /* Event feed */
+    .event-row {
+        display: grid; grid-template-columns: 72px 1fr 1fr 110px;
+        align-items: center; gap: 1rem;
+        padding: .75rem 1.25rem; border-radius: 10px;
+        border: 1px solid var(--border); background: var(--surface);
+        transition: background .15s; animation: rowIn .2s ease-out;
+    }
+    .event-row:hover { background: var(--surface-2); }
+    .event-row.is-violation { background: var(--danger-bg); border-color: #fecaca; }
+    .event-row.is-violation:hover { background: #fee2e2; }
+    .event-row.is-warn { background: var(--warning-bg); border-color: #fde68a; }
+
+    @keyframes rowIn {
+        from { transform: translateY(-6px); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    .badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: .68rem; font-weight: 800; padding: 4px 9px; border-radius: 7px;
+        letter-spacing: .03em;
+    }
+    .badge-pass    { background: var(--success-bg); color: var(--success); border: 1px solid #a7f3d0; }
+    .badge-block   { background: var(--danger-bg);  color: var(--danger);  border: 1px solid #fca5a5; }
+    .badge-warn    { background: var(--warning-bg); color: var(--warning); border: 1px solid #fcd34d; }
+    .badge-unknown { background: var(--surface-2);  color: var(--text-muted); border: 1px solid var(--border); }
+
+    .empty-state {
+        text-align: center; padding: 4rem 2rem; color: var(--text-muted);
+    }
+    .empty-state i { font-size: 2.5rem; color: var(--border); margin-bottom: 1rem; }
+
+    /* Status chip in header */
+    .system-status {
+        display: flex; align-items: center; gap: .5rem;
+        background: var(--success-bg); color: var(--success);
+        border: 1px solid #a7f3d0; padding: .35rem .9rem;
+        border-radius: 20px; font-size: .75rem; font-weight: 800;
+    }
+
+    .col-header {
+        display: grid; grid-template-columns: 72px 1fr 1fr 110px;
+        gap: 1rem; padding: .6rem 1.25rem;
+        font-size: .65rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--text-faint);
+    }
+</style>
+
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
+
+    <!-- Page Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 class="page-title">ID Verification Monitor</h1>
+            <p class="page-subtitle">Live stream of campus entry events and fraud detection decisions.</p>
+        </div>
+        <div class="system-status">
+            <span class="live-dot"></span>
+            Monitoring Active
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+        <div class="stat-tile">
+            <span class="label">Today's Scans</span>
+            <span class="value" id="stat-total">–</span>
+            <span class="sub">Total entry attempts</span>
+        </div>
+        <div class="stat-tile">
+            <span class="label">Approved</span>
+            <span class="value" id="stat-pass" style="color: var(--success);">–</span>
+            <span class="sub">Verified identities</span>
+        </div>
+        <div class="stat-tile">
+            <span class="label">ID Violations</span>
+            <span class="value" id="stat-proxy" style="color: var(--danger);">–</span>
+            <span class="sub">Proxy attempts blocked</span>
+        </div>
+        <div class="stat-tile">
+            <span class="label">Unknown Tags</span>
+            <span class="value" id="stat-unknown" style="color: var(--warning);">–</span>
+            <span class="sub">Unregistered cards</span>
+        </div>
+    </div>
+
+    <!-- Live Feed Card -->
+    <div class="card" style="overflow: hidden;">
+        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: .75rem;">
+                <div style="width: 36px; height: 36px; border-radius: 9px; background: var(--brand-light); display: flex; align-items: center; justify-content: center; color: var(--brand);">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-900">System Architecture Flow</h2>
-                    <p class="text-sm text-gray-500 mt-1">Live demonstration of the Edge AI detection pipeline</p>
-                </div>
-                <a href="/dashboard" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition bg-indigo-50 px-4 py-2 rounded-lg">
-                    <i class="fa-solid fa-arrow-left mr-1"></i> Back to Dashboard
-                </a>
-            </div>
-            
-            <div class="flex items-center justify-between text-center relative px-8 py-4">
-                <!-- Connecting Line -->
-                <div class="absolute top-1/2 left-16 right-16 h-1 bg-gray-200 -z-10 -translate-y-1/2 rounded"></div>
-                
-                <!-- Step 1 -->
-                <div class="flex flex-col items-center gap-3 bg-white px-4" id="step-1">
-                    <div class="w-16 h-16 rounded-full border-4 border-gray-200 bg-white flex items-center justify-center text-gray-400 text-2xl transition-all duration-300" id="icon-1">
-                        <i class="fa-solid fa-id-card"></i>
-                    </div>
-                    <span class="font-bold text-gray-700">1. Fast Scan</span>
-                </div>
-                
-                <!-- Step 2 -->
-                <div class="flex flex-col items-center gap-3 bg-white px-4" id="step-2">
-                    <div class="w-16 h-16 rounded-full border-4 border-gray-200 bg-white flex items-center justify-center text-gray-400 text-2xl transition-all duration-300" id="icon-2">
-                        <i class="fa-solid fa-brain"></i>
-                    </div>
-                    <span class="font-bold text-gray-700">2. ML Proxy Detect</span>
-                </div>
-                
-                <!-- Step 3 -->
-                <div class="flex flex-col items-center gap-3 bg-white px-4" id="step-3">
-                    <div class="w-16 h-16 rounded-full border-4 border-gray-200 bg-white flex items-center justify-center text-gray-400 text-2xl transition-all duration-300" id="icon-3">
-                        <i class="fa-solid fa-lock"></i>
-                    </div>
-                    <span class="font-bold text-gray-700">3. Hardware Audit</span>
-                </div>
-                
-                <!-- Step 4 -->
-                <div class="flex flex-col items-center gap-3 bg-white px-4" id="step-4">
-                    <div class="w-16 h-16 rounded-full border-4 border-gray-200 bg-white flex items-center justify-center text-gray-400 text-2xl transition-all duration-300" id="icon-4">
-                        <i class="fa-solid fa-shield-halved"></i>
-                    </div>
-                    <span class="font-bold text-gray-700" id="text-4">4. Resolution</span>
+                    <div style="font-weight: 800; color: var(--text-primary); font-size: .95rem;">Live Access Events</div>
+                    <div style="font-size: .72rem; color: var(--text-faint);">Updates every second · Last 15 events shown</div>
                 </div>
             </div>
+            <button onclick="clearFeedDisplay()" style="font-size: .72rem; font-weight: 700; color: var(--text-faint); background: var(--surface-2); border: 1px solid var(--border); padding: 5px 12px; border-radius: 8px; cursor: pointer; transition: all .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-faint)'">
+                <i class="fa-solid fa-broom"></i> Clear
+            </button>
         </div>
 
-        <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Left Panel: Controls & Hardware Sync -->
-            <div class="lg:w-1/3 flex flex-col gap-6">
-            
-            <div class="card p-8">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                        <i class="fa-solid fa-microchip text-xl"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-900">Edge Device Status</h2>
-                        <p class="text-sm text-gray-500">ESP32 TinyML Module</p>
-                    </div>
-                </div>
-
-                <div class="space-y-4 mb-8">
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                        <span class="text-sm font-medium text-gray-600">Connection</span>
-                        <span class="text-sm font-bold text-emerald-600 flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 status-pulse"></span> ONLINE
-                        </span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                        <span class="text-sm font-medium text-gray-600">Active Model</span>
-                        <span class="text-sm font-bold text-gray-900">DecisionTree v1.2</span>
-                    </div>
-                </div>
-
-                <hr class="my-6 border-gray-100">
-
-                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Hardware Controls</h3>
-                
-                <button id="btn-simulate" onclick="triggerHardwareAudit()" class="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-lg transition duration-200 mb-4">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Trigger Demo Proxy Alarm
-                </button>
-                <p class="text-xs text-gray-500 mb-6 text-center">Instantly locks the physical ESP32 screen and sounds the buzzer.</p>
-
-                <button id="btn-enroll" onclick="enrollMasterFinger()" class="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-lg transition duration-200 shadow-sm">
-                    <i class="fa-solid fa-fingerprint"></i> Configure Master Override Finger
-                </button>
-                <p class="text-xs text-gray-500 mt-2 text-center">Enrolls a privileged biometrics profile (Slot 100) to clear lockdown states.</p>
-            </div>
-            
+        <!-- Column Headers -->
+        <div class="col-header" style="border-bottom: 1px solid var(--border); background: var(--surface-2);">
+            <div>Time</div>
+            <div>Student</div>
+            <div>Method</div>
+            <div>Decision</div>
         </div>
 
-        <!-- Right Panel: Data Stream -->
-        <div class="card p-8 lg:w-2/3 flex flex-col">
-            <div class="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-900">AI Telemetry Stream</h2>
-                    <p class="text-sm text-gray-500 mt-1">Live feature extraction from hardware</p>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-5 gap-4 px-4 py-3 bg-gray-50 rounded-lg text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 border border-gray-200">
-                <div>Time</div>
-                <div>Identity</div>
-                <div>Dwell (ms)</div>
-                <div>Inter-scan (ms)</div>
-                <div>AI Decision</div>
-            </div>
-
-            <div id="live-feed" class="flex-grow overflow-y-auto space-y-2 pr-2" style="max-height: 500px;">
-                <!-- Data populated by JS -->
-                <div class="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-                    <i class="fa-solid fa-satellite-dish text-3xl animate-pulse"></i>
-                    <p>Awaiting telemetry from Edge Device...</p>
-                </div>
+        <!-- Feed Rows -->
+        <div id="live-feed" style="padding: 1rem; display: flex; flex-direction: column; gap: .5rem; min-height: 300px; max-height: 480px; overflow-y: auto;">
+            <div class="empty-state" id="empty-placeholder">
+                <i class="fa-solid fa-satellite-dish"></i>
+                <p style="font-weight: 700; font-size: .9rem; margin: 0 0 .25rem;">Monitoring...</p>
+                <p style="font-size: .8rem; margin: 0;">Events will appear here as students scan in at the terminal.</p>
             </div>
         </div>
-
-    </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-6 right-6 transform transition-all duration-300 translate-y-20 opacity-0 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3">
-        <i id="toast-icon" class="fa-solid fa-check-circle text-emerald-400"></i>
-        <span id="toast-msg" class="font-medium"></span>
-    </div>
+</div>
+{% endblock %}
 
-    <script>
-        let lastDataString = "";
+{% block scripts %}
+<script>
+    let lastDataHash = '';
+    let displayedEvents = [];
+    let statsTotal = 0, statsPass = 0, statsProxy = 0, statsUnknown = 0;
 
-        function showToast(msg, isError=false) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toast-msg').innerText = msg;
-            document.getElementById('toast-icon').className = isError ? "fa-solid fa-triangle-exclamation text-red-400" : "fa-solid fa-check-circle text-emerald-400";
-            
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
+    function getBadge(prediction) {
+        const p = prediction.toUpperCase();
+        if (p === 'NORMAL' || p === 'FINGERPRINT' || p === 'OVERRIDE' || p.startsWith('VOICE OK')) {
+            return `<span class="badge badge-pass"><i class="fa-solid fa-check"></i> Approved</span>`;
+        } else if (p === 'PROXY DETECTED' || p.startsWith('VOICE PROXY') || p.startsWith('WRONG PHRASE')) {
+            return `<span class="badge badge-block"><i class="fa-solid fa-ban"></i> Blocked</span>`;
+        } else if (p === 'REJECTED' || p === 'UNKNOWN TAG') {
+            return `<span class="badge badge-warn"><i class="fa-solid fa-question"></i> Unknown</span>`;
         }
+        return `<span class="badge badge-unknown">${prediction}</span>`;
+    }
 
-        async function fetchLiveFeed() {
-            try {
-                const response = await fetch('/api/ai_feed');
-                const data = await response.json();
-                
-                const currentDataString = JSON.stringify(data);
-                if (currentDataString === lastDataString) return;
-                lastDataString = currentDataString;
+    function getMethod(prediction) {
+        const p = prediction.toUpperCase();
+        if (p === 'FINGERPRINT' || p === 'OVERRIDE') return '<i class="fa-solid fa-fingerprint" style="color:var(--brand-mid);"></i> Biometric';
+        if (p.startsWith('VOICE')) return '<i class="fa-solid fa-microphone" style="color:var(--brand-mid);"></i> Voice';
+        return '<i class="fa-solid fa-id-card" style="color:var(--text-faint);"></i> RFID Card';
+    }
 
-                const feedDiv = document.getElementById('live-feed');
-                checkFlowResolution(data);
-                
-                feedDiv.innerHTML = '';
+    function getRowClass(prediction) {
+        const p = prediction.toUpperCase();
+        if (p === 'PROXY DETECTED' || p.startsWith('VOICE PROXY') || p.startsWith('WRONG PHRASE')) return 'event-row is-violation';
+        if (p === 'REJECTED' || p === 'UNKNOWN TAG') return 'event-row is-warn';
+        return 'event-row';
+    }
 
-                data.forEach(item => {
-                    const isProxy = item.prediction === 'PROXY DETECTED';
-                    const isFinger = item.prediction === 'FINGERPRINT';
-                    const isRejected = item.prediction === 'REJECTED';
-                    const isOverride = item.prediction === 'OVERRIDE';
-                    
-                    let predHtml = `<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold border border-emerald-200">PASS</span>`;
-                    
-                    if (isProxy) {
-                        predHtml = `<span class="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-bold border border-red-200 flex items-center gap-1 w-max"><i class="fa-solid fa-lock text-[10px]"></i> BLOCKED</span>`;
-                    } else if (isRejected) {
-                        predHtml = `<span class="px-2 py-1 bg-gray-200 text-gray-700 rounded-md text-xs font-bold border border-gray-300">UNKNOWN TAG</span>`;
-                    } else if (isFinger || isOverride) {
-                        predHtml = `<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-bold border border-blue-200"><i class="fa-solid fa-unlock text-[10px] mr-1"></i>OVERRIDE</span>`;
-                    }
+    function updateStats(data) {
+        statsTotal = data.length;
+        statsPass = data.filter(d => {
+            const p = d.prediction.toUpperCase();
+            return p === 'NORMAL' || p === 'FINGERPRINT' || p === 'OVERRIDE' || p.startsWith('VOICE OK');
+        }).length;
+        statsProxy = data.filter(d => {
+            const p = d.prediction.toUpperCase();
+            return p === 'PROXY DETECTED' || p.startsWith('VOICE PROXY') || p.startsWith('WRONG PHRASE');
+        }).length;
+        statsUnknown = data.filter(d => {
+            const p = d.prediction.toUpperCase();
+            return p === 'REJECTED' || p === 'UNKNOWN TAG';
+        }).length;
 
-                    const row = document.createElement('div');
-                    row.className = `alert-row ${isProxy ? 'proxy' : ''} grid grid-cols-5 gap-4 items-center`;
-                    
-                    row.innerHTML = `
-                        <div class="text-gray-500 text-sm font-medium">${item.time}</div>
-                        <div class="font-bold text-gray-900 truncate" title="${item.name}">${item.name}</div>
-                        <div class="${isProxy ? 'text-red-600 font-bold' : 'text-gray-600'}">${item.dwell_time > 0 ? item.dwell_time : '-'}</div>
-                        <div class="${isProxy ? 'text-red-600 font-bold' : 'text-gray-600'}">${item.inter_scan > 0 ? item.inter_scan : '-'}</div>
-                        <div>${predHtml}</div>
-                    `;
-                    feedDiv.appendChild(row);
-                });
-            } catch (e) {
-                console.error("Feed error:", e);
+        document.getElementById('stat-total').textContent = statsTotal;
+        document.getElementById('stat-pass').textContent = statsPass;
+        document.getElementById('stat-proxy').textContent = statsProxy;
+        document.getElementById('stat-unknown').textContent = statsUnknown;
+    }
+
+    async function fetchLiveFeed() {
+        try {
+            const response = await fetch('/api/ai_feed');
+            const data = await response.json();
+
+            const hash = JSON.stringify(data);
+            if (hash === lastDataHash) return;
+            lastDataHash = hash;
+
+            updateStats(data);
+
+            const feedDiv = document.getElementById('live-feed');
+
+            if (!data || data.length === 0) {
+                feedDiv.innerHTML = `
+                    <div class="empty-state" id="empty-placeholder">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                        <p style="font-weight:700;font-size:.9rem;margin:0 0 .25rem;">Monitoring...</p>
+                        <p style="font-size:.8rem;margin:0;">Events will appear here as students scan at the terminal.</p>
+                    </div>`;
+                return;
             }
-        }
 
-        async function triggerHardwareAudit() {
-            try {
-                const btn = document.getElementById('btn-simulate');
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Triggering...';
-                
-                // Visual flow
-                highlightFlowStep(1, 'blue');
-                setTimeout(() => highlightFlowStep(2, 'red'), 800);
-                setTimeout(() => highlightFlowStep(3, 'red'), 1600);
-                
-                await fetch('/api/simulate_proxy_hardware', { method: 'POST' });
-                showToast("Command sent to hardware. Locking device...");
-                
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Trigger Demo Proxy Alarm';
-                }, 2000);
-            } catch (e) {
-                showToast("Failed to connect to backend", true);
-            }
+            feedDiv.innerHTML = '';
+            data.forEach(item => {
+                const row = document.createElement('div');
+                row.className = getRowClass(item.prediction);
+                row.innerHTML = `
+                    <div style="font-family:monospace;font-size:.78rem;font-weight:600;color:var(--text-muted);">${item.time}</div>
+                    <div style="font-weight:700;color:var(--text-primary);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.name}">${item.name}</div>
+                    <div style="font-size:.78rem;color:var(--text-muted);">${getMethod(item.prediction)}</div>
+                    <div>${getBadge(item.prediction)}</div>
+                `;
+                feedDiv.appendChild(row);
+            });
+        } catch (e) {
+            console.error('Feed error:', e);
         }
+    }
 
-        function highlightFlowStep(step, color) {
-            const colors = {
-                'blue': 'border-blue-500 text-blue-500 bg-blue-50',
-                'red': 'border-red-500 text-red-500 bg-red-50',
-                'emerald': 'border-emerald-500 text-emerald-500 bg-emerald-50'
-            };
-            const icon = document.getElementById(`icon-${step}`);
-            icon.className = `w-16 h-16 rounded-full border-4 flex items-center justify-center text-2xl transition-all duration-300 ${colors[color]} scale-110 shadow-lg`;
-        }
-        
-        function resetFlow() {
-            for(let i=1; i<=4; i++) {
-                document.getElementById(`icon-${i}`).className = "w-16 h-16 rounded-full border-4 border-gray-200 bg-white flex items-center justify-center text-gray-400 text-2xl transition-all duration-300";
-            }
-            document.getElementById('text-4').innerText = "4. Resolution";
-        }
+    function clearFeedDisplay() {
+        document.getElementById('live-feed').innerHTML = `
+            <div class="empty-state">
+                <i class="fa-solid fa-satellite-dish"></i>
+                <p style="font-weight:700;font-size:.9rem;margin:0 0 .25rem;">Display cleared</p>
+                <p style="font-size:.8rem;margin:0;">New events will appear as they come in.</p>
+            </div>`;
+        lastDataHash = 'cleared'; // Force refresh on next poll
+    }
 
-        // Catch the override via JS event loop mapping
-        let lastResolution = "";
-        
-        function checkFlowResolution(data) {
-            if (!data || data.length === 0) return;
-            const latest = data[0];
-            
-            if (latest.prediction === 'OVERRIDE' && lastResolution !== 'OVERRIDE') {
-                highlightFlowStep(4, 'emerald');
-                document.getElementById('text-4').innerText = "4. Audit Cleared";
-                lastResolution = 'OVERRIDE';
-                showToast("Proxy Audit Cleared via Master Authentication!");
-                setTimeout(resetFlow, 5000);
-            } else if (latest.prediction === 'PROXY DETECTED' && lastResolution !== 'PROXY') {
-                lastResolution = 'PROXY';
-                // Handled partially by simulate trigger
-            } else if (latest.prediction === 'NORMAL' && lastResolution !== 'NORMAL') {
-                resetFlow();
-                highlightFlowStep(1, 'emerald');
-                setTimeout(() => highlightFlowStep(2, 'emerald'), 500);
-                setTimeout(() => highlightFlowStep(4, 'emerald'), 1000);
-                document.getElementById('text-4').innerText = "4. Normal Log";
-                lastResolution = 'NORMAL';
-                setTimeout(resetFlow, 4000);
-            }
-        }
-
-        async function enrollMasterFinger() {
-            if(!confirm("Are you ready? The ESP32 will immediately ask you to place your finger twice.")) return;
-            try {
-                await fetch('/api/enroll_master_finger', { method: 'POST' });
-                showToast("Hardware enters Biometric Enrollment Mode. Follow device screen instructions.");
-            } catch (e) {
-                showToast("Failed to connect to backend", true);
-            }
-        }
-
-        setInterval(fetchLiveFeed, 1000);
-        fetchLiveFeed();
-    </script>
-</body>
-</html>
+    setInterval(fetchLiveFeed, 1000);
+    fetchLiveFeed();
+</script>
+{% endblock %}

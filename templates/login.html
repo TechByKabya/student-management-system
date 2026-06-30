@@ -1,60 +1,160 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="flex items-center justify-center h-full">
-    <div class="w-full max-w-md">
-        <div class="glass-panel rounded-2xl shadow-xl overflow-hidden mt-10">
-            <div class="bg-indigo-600 px-6 py-8 text-center text-white relative">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16"></div>
-                <div class="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-10 rounded-full -ml-12 -mb-12"></div>
-                <div
-                    class="w-16 h-16 bg-white rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg text-indigo-600 text-3xl">
-                    <i class="fa-solid fa-shield-halved"></i>
+<style>
+    /* Floating animation for the device image */
+    @keyframes float {
+        0% {
+            transform: translateY(0px) rotate(0deg);
+        }
+        50% {
+            transform: translateY(-15px) rotate(1deg);
+        }
+        100% {
+            transform: translateY(0px) rotate(0deg);
+        }
+    }
+    
+    .floating-device {
+        animation: float 6s ease-in-out infinite;
+        filter: drop-shadow(0 25px 35px rgba(0, 0, 0, 0.4));
+    }
+
+    /* Animated gradient background for the showcase side */
+    .bg-showcase {
+        background: linear-gradient(-45deg, #3730a3, #4f46e5, #3b82f6, #1e40af);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        position: relative;
+        overflow: hidden;
+    }
+
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Glow effect behind the image */
+    .device-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 120%;
+        height: 120%;
+        background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 60%);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    /* Decorational tech rings */
+    .tech-ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 0;
+    }
+    .ring-1 { width: 400px; height: 400px; top: 50%; left: 50%; transform: translate(-50%, -50%); border-width: 2px; }
+    .ring-2 { width: 600px; height: 600px; top: 50%; left: 50%; transform: translate(-50%, -50%); border-width: 1px; border-style: dashed; animation: spin-slow 30s linear infinite; }
+    
+    @keyframes spin-slow {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+</style>
+
+<div class="flex items-center justify-center min-h-screen w-full bg-[#f8fafc] p-4 md:p-8">
+    <div class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+        
+        <!-- Left Side: Product Showcase -->
+        <div class="w-full md:w-3/5 bg-showcase flex flex-col items-center justify-center p-10 relative">
+            <div class="device-glow"></div>
+            <div class="tech-ring ring-1"></div>
+            <div class="tech-ring ring-2"></div>
+            
+            <div class="z-10 text-center mb-8 relative">
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-sm font-semibold tracking-wider mb-6 border border-white/20 shadow-inner">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    EDGE AI TERMINAL
                 </div>
-                <h1 class="text-3xl font-bold tracking-tight z-10 relative">Team X</h1>
-                <p class="text-indigo-200 mt-2 z-10 relative">Teacher Administration Portal</p>
+                <h2 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight drop-shadow-md">
+                    Team X <span class="text-indigo-200">System</span>
+                </h2>
+                <p class="text-indigo-100 mt-3 text-lg font-medium opacity-90">Next-gen biometric academic security.</p>
             </div>
-            <div class="p-8">
-                <form action="{{ url_for('login') }}" method="POST" class="space-y-6">
-                    <div>
-                        <label for="username" class="block text-sm font-semibold text-gray-700">Username</label>
-                        <div class="mt-1 relative rounded-md shadow-sm">
-                            <div
-                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                <i class="fa-solid fa-user"></i>
-                            </div>
-                            <input type="text" name="username" id="username"
-                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white/50"
-                                placeholder="admin" required>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
-                        <div class="mt-1 relative rounded-md shadow-sm">
-                            <div
-                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                <i class="fa-solid fa-lock"></i>
-                            </div>
-                            <input type="password" name="password" id="password"
-                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white/50"
-                                placeholder="••••••••" required>
-                        </div>
-                    </div>
-
-                    <div>
-                        <button type="submit"
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all hover:shadow-lg transform hover:-translate-y-0.5">
-                            Sign in <i class="fa-solid fa-arrow-right ml-2 mt-1"></i>
-                        </button>
-                    </div>
-                </form>
+            
+            <div class="z-20 relative w-full max-w-sm flex items-center justify-center">
+                <!-- Floating Device Image -->
+                <img src="{{ url_for('static', filename='images/esp32_device.png') }}" 
+                     alt="ESP32 Biometric Device" 
+                     class="w-full h-auto object-contain floating-device">
             </div>
         </div>
-        <p class="text-center text-sm text-gray-400 mt-6 font-medium tracking-wide border-t border-gray-200 pt-6">
-            IoT Academic Project &copy; 2026<br>
-            Made by <span class="font-bold text-gray-600">Kabya Ghosh</span>
-        </p>
+
+        <!-- Right Side: Login Form -->
+        <div class="w-full md:w-2/5 p-10 md:p-14 flex flex-col justify-center bg-white relative">
+            
+            <div class="mb-10">
+                <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-indigo-100">
+                    <i class="fa-solid fa-shield-halved text-2xl text-indigo-600"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Admin Portal</h1>
+                <p class="text-gray-500 mt-2 text-sm font-medium">Please sign in to manage the campus network.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-6 p-4 rounded-xl text-sm font-semibold {% if category == 'error' %}bg-red-50 text-red-600 border border-red-100{% else %}bg-emerald-50 text-emerald-600 border border-emerald-100{% endif %} flex items-center gap-2">
+                            <i class="fa-solid {% if category == 'error' %}fa-triangle-exclamation{% else %}fa-check-circle{% endif %}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('login') }}" method="POST" class="space-y-5">
+                <div>
+                    <label for="username" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Username</label>
+                    <div class="relative rounded-xl shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-user text-sm"></i>
+                        </div>
+                        <input type="text" name="username" id="username"
+                            class="block w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-gray-50 hover:bg-gray-100 focus:bg-white text-sm font-semibold text-gray-800"
+                            placeholder="Enter username" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Password</label>
+                    <div class="relative rounded-xl shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-lock text-sm"></i>
+                        </div>
+                        <input type="password" name="password" id="password"
+                            class="block w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-gray-50 hover:bg-gray-100 focus:bg-white text-sm font-semibold text-gray-800"
+                            placeholder="••••••••" required>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit"
+                        class="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-600/30 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5">
+                        Secure Sign In <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-auto pt-10">
+                <p class="text-xs text-gray-400 font-medium text-center">
+                    IoT Academic Project &copy; 2026<br>
+                    Engineered by <span class="font-bold text-gray-500">Kabya Ghosh</span>
+                </p>
+            </div>
+            
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -357,14 +357,25 @@ def attendance_log():
     if not session.get('logged_in'): 
         return redirect(url_for('login'))
         
-    logs = get_all_attendance_logs()
-    # Group logs by date for accordion view
-    grouped = {}
-    for log in logs:
-        d = log['local_date']
-        if d not in grouped:
-            grouped[d] = []
-        grouped[d].append(log)
+    from database import get_unique_attendance_dates, get_attendance_logs_by_date
+    from datetime import datetime
+
+    all_dates = get_unique_attendance_dates()
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    
+    # Ensure today is always available in the UI (calendar max and quick pills)
+    if today_str not in all_dates:
+        all_dates.insert(0, today_str)
+    
+    # Get requested date, fallback to today
+    req_date = request.args.get('date')
+    if req_date:
+        current_date = req_date
+    else:
+        current_date = today_str
+
+    # Fetch logs for the selected date
+    logs = get_attendance_logs_by_date(current_date)
         
     # Fetch all daily statuses to display Open/Closed badges
     from database import get_db_connection
@@ -372,8 +383,25 @@ def attendance_log():
     statuses = conn.execute("SELECT * FROM DailyStatus").fetchall()
     conn.close()
     status_map = {row['date']: row['is_open'] for row in statuses}
+    current_status = status_map.get(current_date, 0)
+    
+    # Determine next/prev dates for navigation
+    prev_date = None
+    next_date = None
+    if current_date in all_dates:
+        idx = all_dates.index(current_date)
+        if idx > 0:
+            next_date = all_dates[idx - 1] # all_dates is sorted DESC
+        if idx < len(all_dates) - 1:
+            prev_date = all_dates[idx + 1]
         
-    return render_template('attendance_log.html', grouped_logs=grouped, status_map=status_map)
+    return render_template('attendance_log.html', 
+                           logs=logs, 
+                           current_date=current_date, 
+                           all_dates=all_dates, 
+                           current_status=current_status,
+                           prev_date=prev_date,
+                           next_date=next_date)
 
 @app.route('/students')
 def students():
@@ -532,11 +560,14 @@ def settings():
     creds = get_admin_credentials()
     sms_creds = get_sms_credentials()
     if request.method == 'POST':
-        new_user = request.form.get('username')
-        new_pass = request.form.get('password')
-        teacher_rfid = request.form.get('teacher_rfid', '')
-        sms_api_key  = request.form.get('sms_api_key', '').strip()
+        new_user      = request.form.get('username')
+        new_pass      = request.form.get('password', '').strip()
+        teacher_rfid  = request.form.get('teacher_rfid', '')
+        sms_api_key   = request.form.get('sms_api_key', '').strip()
         sms_sender_id = request.form.get('sms_sender_id', '').strip()
+        # If no new password provided, keep the existing one
+        if not new_pass:
+            new_pass = creds['password']
         update_admin_credentials(new_user, new_pass, teacher_rfid, sms_api_key, sms_sender_id, creds.get('asr_engine', 'mlx'), creds.get('google_api_key', ''))
         flash('Admin settings updated.', 'success')
         return redirect(url_for('settings'))
@@ -546,6 +577,17 @@ def settings():
                            teacher_rfid=creds.get('teacher_rfid', ''),
                            sms_api_key=sms_creds['api_key'],
                            sms_sender_id=sms_creds['sender_id'])
+
+@app.route('/api/settings/verify_password', methods=['POST'])
+def api_verify_password():
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json()
+    current_password = data.get('password', '')
+    creds = get_admin_credentials()
+    if current_password == creds['password']:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Incorrect password'})
 
 @app.route('/asr_test', methods=['GET'])
 def asr_test():
@@ -773,6 +815,86 @@ def system_status():
         'server_time': time.time(),
         'daily_status': current_portal_status,
         'esp32_mode': esp32_status['mode']
+    })
+
+@app.route('/api/dashboard/stats', methods=['GET'])
+def dashboard_stats():
+    """Return attendance & proxy analytics for the dashboard graphs (last 7 days)."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    from database import get_db_connection, get_all_voice_matches
+    total_students = CoreWrapper.get_count()
+
+    # Build last-7-days labels and attendance counts
+    labels = []
+    attendance_counts = []
+    proxy_counts = []
+
+    conn = get_db_connection()
+    for i in range(6, -1, -1):
+        day = time.strftime('%Y-%m-%d', time.localtime(time.time() - i * 86400))
+        labels.append(time.strftime('%d %b', time.localtime(time.time() - i * 86400)))
+
+        # Attendance count for this day
+        row = conn.execute(
+            "SELECT COUNT(DISTINCT student_id) FROM AttendanceLogs WHERE date(timestamp) = ?", (day,)
+        ).fetchone()
+        attendance_counts.append(row[0] if row else 0)
+
+        # Fingerprint proxy alerts from ESP32 for this day
+        fp_row = conn.execute(
+            "SELECT COUNT(*) FROM AttendanceLogs WHERE date(timestamp) = ? AND sensor_type = 'proxy_alert'", (day,)
+        ).fetchone()
+
+        # Voice proxy detections for this day
+        vp_row = conn.execute(
+            "SELECT COUNT(*) FROM VoiceMatches WHERE date = ? AND is_proxy = 1", (day,)
+        ).fetchone()
+
+        proxy_counts.append((fp_row[0] if fp_row else 0) + (vp_row[0] if vp_row else 0))
+
+    # Today's voice proxy stats
+    today = time.strftime('%Y-%m-%d')
+    today_voice = conn.execute(
+        "SELECT COUNT(*) FROM VoiceMatches WHERE date = ? AND is_proxy = 1", (today,)
+    ).fetchone()
+    today_fp_proxy = conn.execute(
+        "SELECT COUNT(*) FROM AttendanceLogs WHERE date(timestamp) = ? AND sensor_type = 'proxy_alert'", (today,)
+    ).fetchone()
+    today_attendance = conn.execute(
+        "SELECT COUNT(DISTINCT student_id) FROM AttendanceLogs WHERE date(timestamp) = ?", (today,)
+    ).fetchone()
+    total_voice_checks = conn.execute(
+        "SELECT COUNT(*) FROM VoiceMatches WHERE date = ?", (today,)
+    ).fetchone()
+    blacklisted_count = conn.execute(
+        "SELECT COUNT(*) FROM Students WHERE is_blacklisted = 1"
+    ).fetchone()
+    conn.close()
+
+    voice_proxies_today = today_voice[0] if today_voice else 0
+    fp_proxies_today = today_fp_proxy[0] if today_fp_proxy else 0
+    attendance_today = today_attendance[0] if today_attendance else 0
+    voice_checks_today = total_voice_checks[0] if total_voice_checks else 0
+    blacklisted_today = blacklisted_count[0] if blacklisted_count else 0
+
+    attendance_rate = round((attendance_today / total_students * 100), 1) if total_students > 0 else 0
+    voice_clear_rate = round(((voice_checks_today - voice_proxies_today) / voice_checks_today * 100), 1) if voice_checks_today > 0 else 100
+
+
+    return jsonify({
+        'labels': labels,
+        'attendance_counts': attendance_counts,
+        'proxy_counts': proxy_counts,
+        'total_students': total_students,
+        'attendance_today': attendance_today,
+        'attendance_rate': attendance_rate,
+        'voice_proxies_today': voice_proxies_today,
+        'fp_proxies_today': fp_proxies_today,
+        'voice_clear_rate': voice_clear_rate,
+        'voice_checks_today': voice_checks_today,
+        'blacklisted_today': blacklisted_today,
     })
 
 # =========================================================
@@ -1294,9 +1416,9 @@ def esp32_voice_submit():
             score      = 0.0
             model_pred = False
 
-        # Proxy if the model's prediction agrees AND the score is >= 70%
-        # Less than 70% (including <60%) is strictly NOT a proxy.
-        is_match_flag = 1 if (model_pred and score >= 0.70) else 0
+        # Proxy if the model's prediction agrees AND the score is >= 82%
+        # Less than 82% is strictly NOT a proxy.
+        is_match_flag = 1 if (model_pred and score >= 0.82) else 0
 
         all_comparisons.append({
             'student_id':   other['student_id'],
@@ -1316,7 +1438,7 @@ def esp32_voice_submit():
             best_model_pred = model_pred
 
     # Only flag as proxy if the best match also passed our 70% hard safety threshold
-    is_proxy = best_model_pred and (best_score >= 0.70)
+    is_proxy = best_model_pred and (best_score >= 0.82)
 
     if is_proxy and best_match:
         print(f"[Voice] PROXY DETECTED! {student['name']} matches {best_match['name']} at {best_score*100:.1f}%")

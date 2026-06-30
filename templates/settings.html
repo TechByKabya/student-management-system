@@ -1,350 +1,686 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <div class="mb-8">
-        <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Admin Settings</h2>
-        <p class="text-gray-500 mt-2 text-lg">Update your secure login credentials for the Teacher Portal.</p>
+<style>
+    :root {
+        --brand:        #4f46e5;
+        --brand-light:  #eef2ff;
+        --brand-mid:    #818cf8;
+        --success:      #059669;
+        --success-bg:   #ecfdf5;
+        --danger:       #dc2626;
+        --danger-bg:    #fef2f2;
+        --warn:         #d97706;
+        --warn-bg:      #fffbeb;
+        --surface:      #ffffff;
+        --surface-2:    #f8fafc;
+        --border:       #e2e8f0;
+        --text-primary: #0f172a;
+        --text-muted:   #64748b;
+        --text-faint:   #94a3b8;
+        --radius:       14px;
+        --shadow-card:  0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+    }
+
+    /* ── Layout ── */
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    /* ── Left Sidebar Nav ── */
+    .settings-nav {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-card);
+        padding: .5rem; position: sticky; top: 1.5rem;
+    }
+    .nav-item {
+        display: flex; align-items: center; gap: .65rem;
+        padding: .65rem .85rem; border-radius: 10px;
+        font-size: .8rem; font-weight: 600; color: var(--text-muted);
+        cursor: pointer; text-decoration: none; transition: all .15s;
+        border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover  { background: var(--surface-2); color: var(--text-primary); }
+    .nav-item.active { background: var(--brand-light); color: var(--brand); font-weight: 700; }
+    .nav-item.danger-nav { color: var(--danger); }
+    .nav-item.danger-nav:hover { background: var(--danger-bg); }
+    .nav-item .nav-icon {
+        width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: .75rem;
+    }
+    .nav-divider { height: 1px; background: var(--border); margin: .4rem 0; }
+
+    /* ── Content Panels ── */
+    .settings-panel { display: none; flex-direction: column; gap: 1.1rem; }
+    .settings-panel.active { display: flex; }
+
+    .panel-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden;
+    }
+    .panel-card-header {
+        padding: 1rem 1.4rem; border-bottom: 1px solid var(--border);
+        background: var(--surface-2); display: flex; align-items: center; gap: .65rem;
+    }
+    .panel-card-header .hdr-icon {
+        width: 34px; height: 34px; border-radius: 9px;
+        display: flex; align-items: center; justify-content: center; font-size: .9rem; flex-shrink: 0;
+    }
+    .panel-card-header h3 { font-size: .88rem; font-weight: 800; color: var(--text-primary); margin: 0; }
+    .panel-card-header p  { font-size: .68rem; color: var(--text-faint); margin: .1rem 0 0; }
+    .panel-card-body { padding: 1.3rem 1.4rem; }
+
+    /* ── Fields ── */
+    .field-group { margin-bottom: 1.05rem; }
+    .field-group:last-child { margin-bottom: 0; }
+    .field-label {
+        display: block; font-size: .7rem; font-weight: 700;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em;
+        margin-bottom: .35rem;
+    }
+    .field-hint { font-size: .7rem; color: var(--text-faint); margin-top: .3rem; }
+
+    .input-wrap { position: relative; }
+    .input-icon {
+        position: absolute; left: .8rem; top: 50%; transform: translateY(-50%);
+        color: var(--text-faint); font-size: .8rem; pointer-events: none;
+    }
+    .settings-input {
+        width: 100%; font-size: .84rem; color: var(--text-primary); font-family: inherit;
+        border: 1px solid var(--border); border-radius: 10px;
+        padding: .62rem .85rem .62rem 2.4rem;
+        background: var(--surface); outline: none;
+        transition: border-color .15s, box-shadow .15s; box-sizing: border-box;
+    }
+    .settings-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+
+    /* ── Info/Warn boxes ── */
+    .info-box {
+        display: flex; align-items: flex-start; gap: .55rem;
+        background: var(--brand-light); border: 1px solid #c7d2fe;
+        border-radius: 10px; padding: .65rem .9rem;
+        font-size: .74rem; color: #3730a3; line-height: 1.5;
+    }
+    .warn-box {
+        display: flex; align-items: flex-start; gap: .55rem;
+        background: var(--warn-bg); border: 1px solid #fcd34d;
+        border-radius: 10px; padding: .65rem .9rem;
+        font-size: .74rem; color: var(--warn); line-height: 1.5;
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: var(--brand); color: #fff; border: none; border-radius: 10px;
+        padding: .6rem 1.25rem; font-size: .8rem; font-weight: 700;
+        cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,.25); transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .88; }
+    .btn-secondary {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: var(--surface); color: var(--brand); border: 1px solid var(--brand-mid);
+        border-radius: 10px; padding: .58rem 1rem;
+        font-size: .78rem; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .btn-secondary:hover { background: var(--brand-light); }
+    .btn-ghost {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
+        border-radius: 9px; padding: .45rem .85rem;
+        font-size: .75rem; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-danger-soft {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: var(--danger-bg); color: var(--danger); border: 1px solid #fca5a5;
+        border-radius: 10px; padding: .58rem 1rem;
+        font-size: .78rem; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .btn-danger-soft:hover { background: #fee2e2; }
+
+    /* ── Danger card ── */
+    .danger-card {
+        background: var(--surface); border: 1px solid #fca5a5;
+        border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden;
+    }
+
+    /* ── Password strength ── */
+    .strength-bar { height: 4px; border-radius: 99px; background: var(--border); margin-top: .5rem; overflow: hidden; }
+    .strength-fill { height: 100%; border-radius: 99px; transition: width .3s, background .3s; width: 0%; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+        align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+        background: var(--surface); border-radius: var(--radius);
+        box-shadow: 0 24px 64px rgba(0,0,0,.22);
+        width: 100%; max-width: 400px; margin: 1rem; overflow: hidden;
+        animation: modalIn .2s ease-out;
+    }
+    @keyframes modalIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header { padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .65rem; }
+    .modal-body   { padding: 1.3rem 1.4rem; }
+    .modal-footer { padding: .9rem 1.4rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: .6rem; }
+
+    /* ── Toast ── */
+    .toast-bar {
+        position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 99999;
+        display: flex; align-items: center; gap: .75rem;
+        padding: .85rem 1.2rem; border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,.18);
+        color: #fff; font-size: .82rem; font-weight: 700; max-width: 320px;
+        transition: opacity .3s, transform .3s;
+        opacity: 0; transform: translateY(12px); pointer-events: none;
+    }
+    .toast-bar.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+    /* ── Scan status ── */
+    #scan-status-msg { font-size: .72rem; color: var(--text-faint); margin-top: .35rem; min-height: 1.2em; }
+</style>
+
+<div style="max-width: 1100px; margin: 0 auto;">
+
+    <!-- Page Header -->
+    <div style="margin-bottom: 1.4rem;">
+        <h1 style="font-size:1.55rem; font-weight:900; color:var(--text-primary); margin:0;">Settings</h1>
+        <p style="font-size:.82rem; color:var(--text-muted); margin:.2rem 0 0;">Manage portal credentials and system configuration.</p>
     </div>
 
-    <div class="glass-panel p-8 rounded-2xl shadow-xl border border-gray-200 bg-white/70">
-        <form action="{{ url_for('settings') }}" method="POST" class="space-y-6">
-            <div>
-                <label for="username" class="block text-sm font-bold text-gray-700 mb-2">Login Username</label>
-                <div class="relative rounded-md shadow-sm">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <i class="fa-solid fa-user-gear"></i>
-                    </div>
-                    <input type="text" name="username" id="username" value="{{ username }}"
-                        class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-white/80 font-medium"
-                        required>
+    <div class="settings-layout">
+
+        <!-- ── Left Nav ── -->
+        <div class="settings-nav">
+            <button class="nav-item active" onclick="switchSection('credentials', this)">
+                <div class="nav-icon" style="background:var(--brand-light); color:var(--brand);">
+                    <i class="fa-solid fa-shield-halved"></i>
                 </div>
-            </div>
-
-            <div>
-                <label for="password" class="block text-sm font-bold text-gray-700 mb-2">Login Password</label>
-                <div class="relative rounded-md shadow-sm">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <i class="fa-solid fa-key"></i>
-                    </div>
-                    <input type="password" name="password" id="password" placeholder="Enter new password"
-                        class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-white/80 font-medium"
-                        required>
+                Login Credentials
+            </button>
+            <button class="nav-item" onclick="switchSection('rfid', this)">
+                <div class="nav-icon" style="background:#fef3c7; color:var(--warn);">
+                    <i class="fa-solid fa-id-card"></i>
                 </div>
-                <p class="text-xs text-gray-400 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> Make sure to use a
-                    strong password for your academic security.</p>
-            </div>
-
-            <div class="pt-4 mt-2 border-t border-gray-100">
-                <label for="teacher_rfid" class="block text-sm font-bold text-gray-700 mb-2">Master Teacher RFID <span
-                        class="text-xs font-normal text-gray-500">(Optional)</span></label>
-                <div class="flex items-center gap-3">
-                    <div class="relative rounded-md shadow-sm flex-1">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                            <i class="fa-solid fa-id-card"></i>
-                        </div>
-                        <input type="text" name="teacher_rfid" id="teacher_rfid" value="{{ teacher_rfid }}"
-                            placeholder="Tap scan or type manually"
-                            class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-white/80 font-mono text-sm uppercase">
-                    </div>
-                    <button type="button" id="scan-rfid-btn" onclick="startRfidScan()"
-                        class="shrink-0 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-wifi text-sm"></i>
-                        <span id="scan-btn-text">Scan RFID</span>
-                    </button>
+                Teacher Access Card
+            </button>
+            <button class="nav-item" onclick="switchSection('sms', this)">
+                <div class="nav-icon" style="background:var(--success-bg); color:var(--success);">
+                    <i class="fa-solid fa-comment-sms"></i>
                 </div>
-                <p id="scan-status-msg" class="text-xs text-gray-500 mt-2">
-                    <i class="fa-solid fa-lightbulb mr-1 text-amber-500"></i>
-                    Scanning this RFID tag will instantly OPEN or CLOSE attendance for the day.
-                </p>
-            </div>
-
-            <!-- ===== SMS NOTIFICATIONS SECTION ===== -->
-            <div class="pt-4 mt-2 border-t border-gray-100">
-                <div class="flex items-center gap-2 mb-4">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                        <i class="fa-solid fa-comment-sms text-sm"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-bold text-gray-800">Absence SMS Notifications</h3>
-                        <p class="text-xs text-gray-500">Powered by <a href="https://bulksmsbd.com" target="_blank"
-                                class="text-indigo-500 hover:underline font-medium">BulkSMSBD</a></p>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 mb-4 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-                    <i class="fa-solid fa-circle-info mr-1 text-blue-400"></i>
-                    When you <strong>close</strong> the attendance portal, an automatic SMS is sent to all absent
-                    students. Duplicate SMS per student per day are prevented.
-                </p>
-
-                <div class="space-y-4">
-                    <div>
-                        <label for="sms_api_key" class="block text-sm font-semibold text-gray-700 mb-1">BulkSMSBD API
-                            Key</label>
-                        <div class="relative rounded-md shadow-sm">
-                            <div
-                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                <i class="fa-solid fa-key text-sm"></i>
-                            </div>
-                            <input type="text" name="sms_api_key" id="sms_api_key" value="{{ sms_api_key }}"
-                                placeholder="Paste your API key from bulksmsbd.com dashboard"
-                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 font-mono text-sm">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="sms_sender_id" class="block text-sm font-semibold text-gray-700 mb-1">Sender
-                            ID</label>
-                        <div class="relative rounded-md shadow-sm">
-                            <div
-                                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                <i class="fa-solid fa-tower-broadcast text-sm"></i>
-                            </div>
-                            <input type="text" name="sms_sender_id" id="sms_sender_id" value="{{ sms_sender_id }}"
-                                placeholder="e.g. MySchool (your approved Sender ID)"
-                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white/80 font-mono text-sm uppercase">
-                        </div>
-                        <p class="text-xs text-gray-400 mt-1.5"><i class="fa-solid fa-circle-info mr-1"></i>Your Sender
-                            ID must be approved in your BulkSMSBD account before use.</p>
-                    </div>
-
-                    <div class="pt-2">
-                        <button type="button" onclick="resetSmsDemo()"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-emerald-50 text-emerald-600 text-xs font-bold rounded-xl border border-emerald-200 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                            <i class="fa-solid fa-rotate-right"></i> Enable Demo Mode (Reset Sent SMS)
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <!-- ===== END SMS SECTION ===== -->
-
-            <div class="pt-6 border-t border-gray-100 flex justify-end">
-                <button type="submit"
-                    class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all transform hover:-translate-y-0.5">
-                    Save Changes <i class="fa-solid fa-check ml-2"></i>
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-
-<!-- ===== DANGER ZONE ===== -->
-<div class="mt-8">
-    <div class="max-w-2xl mx-auto glass-panel rounded-2xl border-2 border-red-200 bg-white overflow-hidden">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-red-100 bg-red-50">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center text-red-600">
+                SMS Notifications
+            </button>
+            <div class="nav-divider"></div>
+            <button class="nav-item danger-nav" onclick="switchSection('danger', this)">
+                <div class="nav-icon" style="background:var(--danger-bg); color:var(--danger);">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
-                <div>
-                    <h3 class="text-sm font-bold text-red-700 uppercase tracking-widest">Danger Zone</h3>
-                    <p class="text-xs text-red-400 mt-0.5">Irreversible hardware operations</p>
+                Danger Zone
+            </button>
+        </div>
+
+        <!-- ── Right Content ── -->
+        <div>
+
+            <!-- ── PANEL: Credentials ── -->
+            <div id="panel-credentials" class="settings-panel active">
+                <div class="panel-card">
+                    <div class="panel-card-header">
+                        <div class="hdr-icon" style="background:var(--brand-light); color:var(--brand);">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div>
+                            <h3>Login Credentials</h3>
+                            <p>Update your username and optionally set a new password</p>
+                        </div>
+                    </div>
+                    <div class="panel-card-body">
+                        <div class="field-group">
+                            <label class="field-label" for="username">Username</label>
+                            <div class="input-wrap">
+                                <i class="input-icon fa-solid fa-user-gear"></i>
+                                <input type="text" id="username" name="username" value="{{ username }}"
+                                       class="settings-input" required placeholder="Portal login username">
+                            </div>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="password">
+                                New Password <span style="font-weight:500; color:var(--text-faint); text-transform:none; letter-spacing:0;">(leave blank to keep current)</span>
+                            </label>
+                            <div class="input-wrap">
+                                <i class="input-icon fa-solid fa-key"></i>
+                                <input type="password" id="password" name="password"
+                                       class="settings-input" placeholder="Leave blank to keep existing password"
+                                       oninput="updateStrength(this.value)">
+                            </div>
+                            <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+                            <p class="field-hint" id="strength-hint">Enter a new password only if you want to change it.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end;">
+                    <button type="button" onclick="openVerifyModal('credentials')" class="btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
                 </div>
             </div>
-        </div>
-        <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-                <p class="font-semibold text-gray-800">Wipe All Fingerprints</p>
-                <p class="text-sm text-gray-500 mt-0.5">Commands the ESP32 to delete every stored fingerprint
-                    template from the sensor module. Student records remain intact.</p>
+
+            <!-- ── PANEL: RFID ── -->
+            <div id="panel-rfid" class="settings-panel">
+                <div class="panel-card">
+                    <div class="panel-card-header">
+                        <div class="hdr-icon" style="background:#fef3c7; color:var(--warn);">
+                            <i class="fa-solid fa-id-card"></i>
+                        </div>
+                        <div>
+                            <h3>Teacher Access Card</h3>
+                            <p>RFID card that instantly opens or closes the attendance gate</p>
+                        </div>
+                    </div>
+                    <div class="panel-card-body">
+                        <div class="field-group">
+                            <label class="field-label" for="teacher_rfid">Card UID</label>
+                            <div style="display:flex; gap:.6rem; align-items:center;">
+                                <div class="input-wrap" style="flex:1;">
+                                    <i class="input-icon fa-solid fa-id-card"></i>
+                                    <input type="text" id="teacher_rfid" name="teacher_rfid"
+                                           value="{{ teacher_rfid }}" placeholder="Tap card or type UID"
+                                           class="settings-input" style="font-family:monospace; text-transform:uppercase;">
+                                </div>
+                                <button type="button" id="scan-rfid-btn" onclick="startRfidScan()" class="btn-secondary">
+                                    <i class="fa-solid fa-wifi"></i>
+                                    <span id="scan-btn-text">Scan Card</span>
+                                </button>
+                            </div>
+                            <p id="scan-status-msg">
+                                <i class="fa-solid fa-lightbulb" style="color:var(--warn); margin-right:3px;"></i>
+                                Click Scan Card, then tap your RFID card on the campus terminal.
+                            </p>
+                        </div>
+                        <div class="info-box">
+                            <i class="fa-solid fa-circle-info" style="margin-top:2px; flex-shrink:0;"></i>
+                            <span>When this card is scanned at the terminal, it will automatically open or close attendance for the day — no computer needed.</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end;">
+                    <button type="button" onclick="openVerifyModal('rfid')" class="btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                </div>
             </div>
-            <button id="btn-wipe-fingerprints" onclick="wipeAllFingerprints()"
-                class="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow transition-all transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500">
-                <i class="fa-solid fa-trash-can"></i> Wipe All Fingerprints
-            </button>
-        </div>
-        <!-- Waiting indicator (hidden until wipe is triggered) -->
-        <div id="wipe-waiting" class="hidden px-6 pb-4">
-            <div class="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                <i class="fa-solid fa-spinner fa-spin text-amber-500"></i>
-                <span class="text-sm font-medium text-amber-700">Waiting for ESP32 to complete hardware wipe…</span>
+
+            <!-- ── PANEL: SMS ── -->
+            <div id="panel-sms" class="settings-panel">
+                <div class="panel-card">
+                    <div class="panel-card-header">
+                        <div class="hdr-icon" style="background:var(--success-bg); color:var(--success);">
+                            <i class="fa-solid fa-comment-sms"></i>
+                        </div>
+                        <div>
+                            <h3>Absence SMS Notifications</h3>
+                            <p>Auto-alerts to absent students — powered by BulkSMSBD</p>
+                        </div>
+                    </div>
+                    <div class="panel-card-body">
+                        <div class="warn-box" style="margin-bottom:1.1rem;">
+                            <i class="fa-solid fa-circle-info" style="margin-top:2px; flex-shrink:0;"></i>
+                            <span>When you <strong>close</strong> the attendance gate, an automatic SMS is sent to all absent students. Duplicate messages per day are prevented.</span>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="sms_api_key">BulkSMSBD API Key</label>
+                            <div class="input-wrap">
+                                <i class="input-icon fa-solid fa-key"></i>
+                                <input type="text" id="sms_api_key" name="sms_api_key" value="{{ sms_api_key }}"
+                                       placeholder="Paste your API key from bulksmsbd.com"
+                                       class="settings-input" style="font-family:monospace; font-size:.8rem;">
+                            </div>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="sms_sender_id">Sender ID</label>
+                            <div class="input-wrap">
+                                <i class="input-icon fa-solid fa-tower-broadcast"></i>
+                                <input type="text" id="sms_sender_id" name="sms_sender_id" value="{{ sms_sender_id }}"
+                                       placeholder="e.g. MySchool (approved sender ID)"
+                                       class="settings-input" style="font-family:monospace; font-size:.8rem; text-transform:uppercase;">
+                            </div>
+                            <p class="field-hint"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>Sender ID must be pre-approved in your BulkSMSBD account.</p>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem;">
+                    <button type="button" onclick="resetSmsDemo()" class="btn-ghost">
+                        <i class="fa-solid fa-rotate-right"></i> Reset SMS Log (Demo Mode)
+                    </button>
+                    <button type="button" onclick="openVerifyModal('sms')" class="btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
+
+            <!-- ── PANEL: Danger ── -->
+            <div id="panel-danger" class="settings-panel">
+                <div class="danger-card">
+                    <div style="padding:1rem 1.4rem; border-bottom:1px solid #fee2e2; background:var(--danger-bg); display:flex; align-items:center; gap:.6rem;">
+                        <div style="width:32px; height:32px; border-radius:8px; background:rgba(220,38,38,.15); display:flex; align-items:center; justify-content:center; color:var(--danger);">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-size:.85rem; font-weight:800; color:var(--danger); margin:0; text-transform:uppercase; letter-spacing:.05em;">Danger Zone</h3>
+                            <p style="font-size:.68rem; color:#f87171; margin:0;">These actions are irreversible</p>
+                        </div>
+                    </div>
+                    <div style="padding:1.2rem 1.4rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                        <div>
+                            <p style="font-size:.85rem; font-weight:700; color:var(--text-primary); margin:0;">Reset Biometric Sensor</p>
+                            <p style="font-size:.73rem; color:var(--text-muted); margin:.25rem 0 0;">Wipes all stored fingerprints from the campus terminal hardware. Student database records are not affected.</p>
+                        </div>
+                        <button id="btn-wipe-fingerprints" onclick="wipeAllFingerprints()" class="btn-danger-soft" style="white-space:nowrap;">
+                            <i class="fa-solid fa-trash-can"></i> Wipe All Fingerprints
+                        </button>
+                    </div>
+                    <div id="wipe-waiting" style="display:none; padding:0 1.4rem 1.1rem;">
+                        <div style="display:flex; align-items:center; gap:.6rem; background:var(--warn-bg); border:1px solid #fcd34d; border-radius:10px; padding:.65rem .9rem;">
+                            <i class="fa-solid fa-spinner fa-spin" style="color:var(--warn);"></i>
+                            <span style="font-size:.78rem; font-weight:600; color:var(--warn);">Waiting for terminal to complete hardware wipe…</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end right content -->
+    </div><!-- end layout -->
 </div>
 
-<!-- ===== WIPE CONFIRMATION MODAL ===== -->
-<div id="wipe-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        <div class="bg-red-600 px-6 py-5 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <i class="fa-solid fa-triangle-exclamation text-white text-lg"></i>
+<!-- ── Verify Password Modal ── -->
+<div id="verify-modal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div style="width:32px; height:32px; border-radius:8px; background:var(--brand-light); display:flex; align-items:center; justify-content:center; color:var(--brand);">
+                <i class="fa-solid fa-lock"></i>
             </div>
-            <h3 class="text-lg font-bold text-white">Confirm Master Reset</h3>
-        </div>
-        <div class="px-6 py-5">
-            <p class="text-gray-700">This will send a <strong>delete_all</strong> command to the ESP32, permanently
-                erasing every fingerprint template stored on the sensor hardware.</p>
-            <p class="mt-3 text-sm text-gray-500">Student records, grades, and attendance logs are <strong>not</strong>
-                affected. Only the physical sensor mappings will be cleared.</p>
-            <div class="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
-                <i class="fa-solid fa-circle-exclamation mr-2"></i>This action cannot be undone.
+            <div>
+                <h3 style="font-size:.95rem; font-weight:800; color:var(--text-primary); margin:0;">Confirm Identity</h3>
+                <p style="font-size:.7rem; color:var(--text-faint); margin:.1rem 0 0;">Enter your current password to save changes</p>
             </div>
         </div>
-        <div class="px-6 pb-6 flex justify-end gap-3">
-            <button onclick="closeWipeModal()"
-                class="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+        <div class="modal-body">
+            <div class="field-group">
+                <label class="field-label" for="verify-password-input">Current Password</label>
+                <div class="input-wrap">
+                    <i class="input-icon fa-solid fa-key"></i>
+                    <input type="password" id="verify-password-input"
+                           class="settings-input" placeholder="Your current login password"
+                           onkeydown="if(event.key==='Enter') submitVerify()">
+                </div>
+                <p id="verify-error" style="font-size:.72rem; color:var(--danger); margin-top:.3rem; display:none;">
+                    <i class="fa-solid fa-circle-xmark" style="margin-right:4px;"></i>Incorrect password. Please try again.
+                </p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeVerifyModal()"
+                    style="background:var(--surface); border:1px solid var(--border); border-radius:9px;
+                           padding:.55rem 1.1rem; font-size:.8rem; font-weight:600; color:var(--text-muted); cursor:pointer;">
                 Cancel
             </button>
-            <button onclick="confirmWipe()"
-                class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold shadow transition">
-                <i class="fa-solid fa-trash-can mr-2"></i>Yes, Wipe All
+            <button onclick="submitVerify()" class="btn-primary" id="verify-submit-btn" style="padding:.55rem 1.2rem;">
+                <i class="fa-solid fa-check"></i> Confirm & Save
             </button>
         </div>
     </div>
 </div>
 
-<!-- ===== TOAST NOTIFICATION ===== -->
-<div id="toast-notification"
-    class="hidden fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-white text-sm font-semibold max-w-sm transition-all duration-300">
-    <i id="toast-icon" class="fa-solid fa-check-circle text-lg"></i>
-    <span id="toast-message"></span>
+<!-- ── Wipe Modal ── -->
+<div id="wipe-modal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header" style="background:var(--danger); padding:1.1rem 1.4rem;">
+            <div style="width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; color:#fff;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 style="font-size:.95rem; font-weight:800; color:#fff; margin:0;">Confirm Biometric Reset</h3>
+            </div>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:.84rem; color:var(--text-primary); line-height:1.65; margin:0 0 .75rem;">
+                This will permanently erase all fingerprints stored on the campus terminal sensor. Student database records are <strong>not affected</strong>.
+            </p>
+            <div style="background:var(--danger-bg); border:1px solid #fca5a5; border-radius:10px; padding:.65rem .9rem; font-size:.78rem; font-weight:700; color:var(--danger);">
+                <i class="fa-solid fa-circle-exclamation" style="margin-right:6px;"></i>This action cannot be undone.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeWipeModal()"
+                    style="background:var(--surface); border:1px solid var(--border); border-radius:9px;
+                           padding:.55rem 1.1rem; font-size:.8rem; font-weight:600; color:var(--text-muted); cursor:pointer;">
+                Cancel
+            </button>
+            <button onclick="confirmWipe()" class="btn-danger-soft" style="padding:.55rem 1.1rem;">
+                <i class="fa-solid fa-trash-can"></i> Yes, Wipe All
+            </button>
+        </div>
+    </div>
 </div>
+
+<!-- Toast -->
+<div id="toast-bar" class="toast-bar">
+    <i id="toast-icon" class="fa-solid fa-check-circle"></i>
+    <span id="toast-msg"></span>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-    let scanPollInterval = null;
+// ── Section Switching ──────────────────────────────────────
+function switchSection(name, btn) {
+    document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    btn.classList.add('active');
+}
 
-    function startRfidScan() {
-        const btn = document.getElementById('scan-rfid-btn');
-        const btnText = document.getElementById('scan-btn-text');
-        const msg = document.getElementById('scan-status-msg');
-        const input = document.getElementById('teacher_rfid');
-
-        // Trigger the ESP32 into capture mode
-        fetch('/action/start_teacher_rfid_scan', { method: 'POST' }).then(() => {
-            // Update UI to scanning state
-            btnText.textContent = 'Waiting...';
-            btn.classList.add('animate-pulse', 'bg-amber-500', 'hover:bg-amber-600');
-            btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-            msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1 text-indigo-500"></i> <b>Tap your RFID card/tag on the ESP32 scanner now...</b>';
-
-            // Poll for the result every 500ms
-            if (scanPollInterval) clearInterval(scanPollInterval);
-            scanPollInterval = setInterval(() => {
-                fetch('/api/teacher_rfid_capture').then(r => r.json()).then(data => {
-                    if (data.captured) {
-                        clearInterval(scanPollInterval);
-                        input.value = data.uid;
-                        btnText.textContent = 'Scan RFID';
-                        btn.classList.remove('animate-pulse', 'bg-amber-500', 'hover:bg-amber-600');
-                        btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                        msg.innerHTML = '<i class="fa-solid fa-circle-check mr-1 text-emerald-500"></i> <b class="text-emerald-600">RFID Captured! Click "Save Changes" to register it.</b>';
-                    }
-                });
-            }, 500);
-
-            // Auto-cancel after 30 seconds
-            setTimeout(() => {
-                if (scanPollInterval) {
-                    clearInterval(scanPollInterval);
-                    btnText.textContent = 'Scan RFID';
-                    btn.classList.remove('animate-pulse', 'bg-amber-500', 'hover:bg-amber-600');
-                    btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
-                    msg.innerHTML = '<i class="fa-solid fa-lightbulb mr-1 text-amber-500"></i> Scan timed out. Try again.';
-                }
-            }, 30000);
-        });
+// ── Password Strength ──────────────────────────────────────
+function updateStrength(val) {
+    const fill  = document.getElementById('strength-fill');
+    const hint  = document.getElementById('strength-hint');
+    if (!val) {
+        fill.style.width = '0%'; fill.style.background = 'var(--border)';
+        hint.textContent = 'Enter a new password only if you want to change it.';
+        hint.style.color = 'var(--text-faint)';
+        return;
     }
+    let score = 0;
+    if (val.length >= 8)  score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[^A-Za-z0-9]/.test(val)) score++;
+    const levels = [
+        { w: '25%', c: '#ef4444', t: 'Weak' },
+        { w: '50%', c: '#f97316', t: 'Fair' },
+        { w: '75%', c: '#eab308', t: 'Good' },
+        { w: '100%',c: '#22c55e', t: 'Strong' },
+    ];
+    const lv = levels[score - 1] || levels[0];
+    fill.style.width = lv.w; fill.style.background = lv.c;
+    hint.textContent = `Password strength: ${lv.t}`;
+    hint.style.color = lv.c;
+}
 
-    // ===== MASTER RESET (Wipe All Fingerprints) =====
-    function wipeAllFingerprints() {
-        document.getElementById('wipe-modal').classList.remove('hidden');
-    }
+// ── Verify Modal ───────────────────────────────────────────
+let pendingSection = null;
 
-    function closeWipeModal() {
-        document.getElementById('wipe-modal').classList.add('hidden');
-    }
+function openVerifyModal(section) {
+    pendingSection = section;
+    document.getElementById('verify-password-input').value = '';
+    document.getElementById('verify-error').style.display = 'none';
+    document.getElementById('verify-modal').classList.add('open');
+    setTimeout(() => document.getElementById('verify-password-input').focus(), 100);
+}
+function closeVerifyModal() {
+    document.getElementById('verify-modal').classList.remove('open');
+    pendingSection = null;
+}
 
-    let wipePollingInterval = null;
+function submitVerify() {
+    const pwd = document.getElementById('verify-password-input').value;
+    if (!pwd) return;
+    const btn = document.getElementById('verify-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Verifying…';
 
-    function confirmWipe() {
-        closeWipeModal();
-
-        const btn = document.getElementById('btn-wipe-fingerprints');
-        btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-        document.getElementById('wipe-waiting').classList.remove('hidden');
-
-        fetch('/action/wipe_fingerprints', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) {
-                    showToast('Failed to trigger wipe. Check server logs.', 'error');
-                    resetWipeUI();
-                    return;
-                }
-                // Poll ESP32 status until mode returns to 'attendance'
-                wipePollingInterval = setInterval(() => {
-                    fetch('/api/system/status')
-                        .then(r => r.json())
-                        .then(s => {
-                            if (s.esp32_mode === 'attendance') {
-                                clearInterval(wipePollingInterval);
-                                resetWipeUI();
-                                showToast('All fingerprints wiped successfully!', 'success');
-                            }
-                        })
-                        .catch(console.error);
-                }, 2000);
-            })
-            .catch(() => {
-                showToast('Network error. Please try again.', 'error');
-                resetWipeUI();
-            });
-    }
-
-    function resetWipeUI() {
-        const btn = document.getElementById('btn-wipe-fingerprints');
+    fetch('/api/settings/verify_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd })
+    })
+    .then(r => r.json())
+    .then(data => {
         btn.disabled = false;
-        btn.classList.remove('opacity-50', 'cursor-not-allowed');
-        document.getElementById('wipe-waiting').classList.add('hidden');
-    }
-
-    function resetSmsDemo() {
-        if (!confirm('Are you sure you want to reset the SMS logs? This will allow duplicate SMS to be sent to absent students today.')) {
-            return;
-        }
-
-        fetch('/action/reset_sms_log', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('SMS logs reset! You can now demo the feature again.', 'success');
-                } else {
-                    showToast('Failed to reset logs.', 'error');
-                }
-            })
-            .catch(() => showToast('Network error.', 'error'));
-    }
-
-    function showToast(message, type) {
-        const toast = document.getElementById('toast-notification');
-        const icon = document.getElementById('toast-icon');
-        const msg = document.getElementById('toast-message');
-
-        msg.textContent = message;
-        toast.className = toast.className.replace(/bg-\S+/g, '').trim();
-
-        if (type === 'success') {
-            toast.classList.add('bg-emerald-600');
-            icon.className = 'fa-solid fa-check-circle text-lg';
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Confirm & Save';
+        if (data.success) {
+            closeVerifyModal();
+            submitSettings();
         } else {
-            toast.classList.add('bg-red-600');
-            icon.className = 'fa-solid fa-circle-xmark text-lg';
+            document.getElementById('verify-error').style.display = 'block';
+            document.getElementById('verify-password-input').focus();
         }
-
-        toast.classList.remove('hidden');
-        setTimeout(() => toast.classList.add('hidden'), 4000);
-    }
-
-    // Close modal on backdrop click
-    document.getElementById('wipe-modal').addEventListener('click', function (e) {
-        if (e.target === this) closeWipeModal();
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Confirm & Save';
+        showToast('Network error. Please try again.', 'error');
     });
+}
+
+// ── Submit Settings via real form POST ────────────────────
+function submitSettings() {
+    // Build a real form and submit it
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = "{{ url_for('settings') }}";
+
+    const fields = ['username', 'password', 'teacher_rfid', 'sms_api_key', 'sms_sender_id'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = id;
+            input.value = el.value;
+            form.appendChild(input);
+        }
+    });
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// ── RFID Scan ─────────────────────────────────────────────
+let scanPollInterval = null;
+
+function startRfidScan() {
+    const btn     = document.getElementById('scan-rfid-btn');
+    const btnText = document.getElementById('scan-btn-text');
+    const msg     = document.getElementById('scan-status-msg');
+    const input   = document.getElementById('teacher_rfid');
+
+    fetch('/action/start_teacher_rfid_scan', { method: 'POST' }).then(() => {
+        btnText.textContent = 'Waiting…';
+        btn.style.background = '#fffbeb'; btn.style.color = 'var(--warn)'; btn.style.borderColor = '#fcd34d';
+        msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:var(--brand);margin-right:4px;"></i><strong>Tap your card on the campus terminal now…</strong>';
+
+        if (scanPollInterval) clearInterval(scanPollInterval);
+        scanPollInterval = setInterval(() => {
+            fetch('/api/teacher_rfid_capture').then(r => r.json()).then(data => {
+                if (data.captured) {
+                    clearInterval(scanPollInterval);
+                    input.value = data.uid;
+                    btnText.textContent = 'Scan Card';
+                    btn.style.background = 'var(--surface)'; btn.style.color = 'var(--brand)'; btn.style.borderColor = 'var(--brand-mid)';
+                    msg.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--success);margin-right:4px;"></i><strong style="color:var(--success);">Card captured! Click "Save Changes" to register it.</strong>';
+                }
+            });
+        }, 500);
+
+        setTimeout(() => {
+            if (scanPollInterval) {
+                clearInterval(scanPollInterval);
+                btnText.textContent = 'Scan Card';
+                btn.style.background = 'var(--surface)'; btn.style.color = 'var(--brand)'; btn.style.borderColor = 'var(--brand-mid)';
+                msg.innerHTML = '<i class="fa-solid fa-clock" style="color:var(--text-faint);margin-right:4px;"></i>Scan timed out. Try again.';
+            }
+        }, 30000);
+    });
+}
+
+// ── Wipe Fingerprints ─────────────────────────────────────
+function wipeAllFingerprints() { document.getElementById('wipe-modal').classList.add('open'); }
+function closeWipeModal()       { document.getElementById('wipe-modal').classList.remove('open'); }
+
+let wipePollingInterval = null;
+function confirmWipe() {
+    closeWipeModal();
+    const btn = document.getElementById('btn-wipe-fingerprints');
+    btn.disabled = true; btn.style.opacity = '.5';
+    document.getElementById('wipe-waiting').style.display = 'block';
+
+    fetch('/action/wipe_fingerprints', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { showToast('Failed to trigger wipe.', 'error'); resetWipeUI(); return; }
+            wipePollingInterval = setInterval(() => {
+                fetch('/api/system/status').then(r => r.json()).then(s => {
+                    if (s.esp32_mode === 'attendance') {
+                        clearInterval(wipePollingInterval);
+                        resetWipeUI();
+                        showToast('All fingerprints wiped successfully!', 'success');
+                    }
+                }).catch(console.error);
+            }, 2000);
+        })
+        .catch(() => { showToast('Network error.', 'error'); resetWipeUI(); });
+}
+function resetWipeUI() {
+    document.getElementById('btn-wipe-fingerprints').disabled = false;
+    document.getElementById('btn-wipe-fingerprints').style.opacity = '1';
+    document.getElementById('wipe-waiting').style.display = 'none';
+}
+
+// ── SMS Demo Reset ────────────────────────────────────────
+function resetSmsDemo() {
+    if (!confirm('Reset SMS logs? This allows re-sending absence notifications today.')) return;
+    fetch('/action/reset_sms_log', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => showToast(data.success ? 'SMS logs reset.' : 'Failed to reset.', data.success ? 'success' : 'error'))
+        .catch(() => showToast('Network error.', 'error'));
+}
+
+// ── Toast ─────────────────────────────────────────────────
+function showToast(message, type) {
+    const bar  = document.getElementById('toast-bar');
+    const icon = document.getElementById('toast-icon');
+    document.getElementById('toast-msg').textContent = message;
+    bar.style.background = type === 'success' ? '#059669' : '#dc2626';
+    icon.className = type === 'success' ? 'fa-solid fa-check-circle' : 'fa-solid fa-circle-xmark';
+    bar.classList.add('show');
+    setTimeout(() => bar.classList.remove('show'), 4000);
+}
+
+// Close modals on backdrop click
+['verify-modal','wipe-modal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.remove('open');
+            pendingSection = null;
+        }
+    });
+});
 </script>
 {% endblock %}

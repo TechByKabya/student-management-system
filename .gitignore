@@ -20,3 +20,4 @@ backend/attendance.db
 
 # Cache
 audio_cache/
+static/uploads/
