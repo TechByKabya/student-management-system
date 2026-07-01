@@ -1,5 +1,5 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║     TEAM X  –  Smart Attendance System  v3.0                    ║
+// ║     TEAMX  –  Smart Attendance System  v3.0                    ║
 // ║     Dual-Core FreeRTOS | RFID | Fingerprint | Voice Proxy       ║
 // ║                                                                  ║
 // ║  NEW in v3.0:                                                    ║
@@ -9,70 +9,72 @@
 // ║   • LEDs removed; buzzer-only feedback                          ║
 // ╚══════════════════════════════════════════════════════════════════╝
 
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <Adafruit_Fingerprint.h>
-#include <Adafruit_PN532.h>
-#include <WiFiManager.h>
-#include <ESPmDNS.h>
-#include <Preferences.h>
-#include <SPI.h>
-#include <SD.h>
-#include "RTClib.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "driver/i2s.h"
 #include "ProxyModel.h"
+#include "RTClib.h"
+#include "driver/i2s.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "freertos/task.h"
+#include <Adafruit_Fingerprint.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_PN532.h>
+#include <Adafruit_SSD1306.h>
+#include <ArduinoJson.h>
+#include <ESPmDNS.h>
+#include <HTTPClient.h>
+#include <Preferences.h>
+#include <SD.h>
+#include <SPI.h>
+#include <WiFi.h>
+#include <WiFiManager.h>
+#include <Wire.h>
 
 // ========================= Pin Definitions =========================
 // I2S Microphone (INMP441) — as specified by user
-#define I2S_SD_PIN   14   // Data (SD)
-#define I2S_WS_PIN   27   // Word Select (WS / LRCL)
-#define I2S_SCK_PIN  25   // Bit Clock (SCK / BCLK)
-#define I2S_PORT     I2S_NUM_0
+#define I2S_SD_PIN 14  // Data (SD)
+#define I2S_WS_PIN 27  // Word Select (WS / LRCL)
+#define I2S_SCK_PIN 25 // Bit Clock (SCK / BCLK)
+#define I2S_PORT I2S_NUM_0
 
 // Other pins (LEDs removed per user request)
-#define BUZZER       26
-#define RX2_PIN      16
-#define TX2_PIN      17
-#define PN532_IRQ    (2)
-#define PN532_RESET  (3)
-#define SD_CS_PIN    5
+#define BUZZER 26
+#define RX2_PIN 16
+#define TX2_PIN 17
+#define PN532_IRQ (2)
+#define PN532_RESET (3)
+#define SD_CS_PIN 5
 
 // ========================= I2S / Audio Config ======================
-#define VOICE_SAMPLE_RATE   16000   // 16 kHz — required by SpeechBrain model
-#define VOICE_BITS          16      // 16-bit PCM
-#define VOICE_RECORD_SECS   9       // 9 seconds of audio per scan
-#define VOICE_BYTE_RATE     (VOICE_SAMPLE_RATE * (VOICE_BITS / 8))
-#define VOICE_DATA_BYTES    (VOICE_BYTE_RATE * VOICE_RECORD_SECS)  // ~288 KB
-#define VOICE_WAV_BYTES     (44 + VOICE_DATA_BYTES)                // +WAV header
+#define VOICE_SAMPLE_RATE 16000 // 16 kHz — required by SpeechBrain model
+#define VOICE_BITS                                                             \
+  16 // 16-bit PCM (matches voice_recog firmware that works correctly)
+#define VOICE_RECORD_SECS 5 // 5 seconds of audio per scan
+#define VOICE_BYTE_RATE (VOICE_SAMPLE_RATE * (VOICE_BITS / 8))
+#define VOICE_DATA_BYTES (VOICE_BYTE_RATE * VOICE_RECORD_SECS) // ~160 KB
+#define VOICE_WAV_BYTES (44 + VOICE_DATA_BYTES)                // +WAV header
 
 // FreeRTOS EventGroup bits for cross-core voice coordination
-#define VOICE_REQUEST_BIT   (1 << 0)   // Core 1 sets → Core 0 begins recording
-#define VOICE_DONE_BIT      (1 << 1)   // Core 0 sets → Core 1 reads result
-#define VOICE_ABORT_BIT     (1 << 2)   // Core 1 sets → Core 0 cancels
+#define VOICE_REQUEST_BIT (1 << 0) // Core 1 sets → Core 0 begins recording
+#define VOICE_DONE_BIT (1 << 1)    // Core 0 sets → Core 1 reads result
+#define VOICE_ABORT_BIT (1 << 2)   // Core 1 sets → Core 0 cancels
 
 static EventGroupHandle_t voiceEventGroup;
 // NO large RAM buffer — audio is written directly to SD card in 1KB chunks
-static volatile bool voiceFileSaved = false;  // Set by voiceTask when SD file is ready
+static volatile bool voiceFileSaved =
+    false; // Set by voiceTask when SD file is ready
 
 // Temp WAV file path on SD card
-#define VOICE_TEMP_PATH  "/voice_temp.wav"
+#define VOICE_TEMP_PATH "/voice_temp.wav"
 
 // RFID to pass context from Core 1 → Core 0 for the voice upload
 static volatile char voiceRfidUid[20] = {0};
 
 // ========================= Objects & Globals =======================
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
-HardwareSerial   mySerial(2);
+HardwareSerial mySerial(2);
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
-Adafruit_PN532   nfc(PN532_IRQ, PN532_RESET);
-RTC_DS3231       rtc;
+Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+RTC_DS3231 rtc;
 
 // Mutexes
 SemaphoreHandle_t displayMutex;
@@ -81,165 +83,169 @@ SemaphoreHandle_t wifiMutex;
 
 // System State
 String serverBaseURL = "";
-String currentMode   = "attendance";
-int    targetID      = -1;
-bool   sdReady       = false;
-bool   rtcReady      = false;
-bool   isOnline      = false;
+String currentMode = "attendance";
+int targetID = -1;
+bool sdReady = false;
+bool rtcReady = false;
+bool isOnline = false;
 volatile bool isSyncing = false;
-int    unsentCount   = 0;
-uint32_t sdTotalMB   = 0;
+bool wasOnline = false; // tracks previous online state for reconnect detection
+int unsentCount = 0;
+uint32_t sdTotalMB = 0;
 
 // Security / Proxy Audit State
 unsigned long lastRFIDScanTime = 0;
-bool          pendingAudit     = false;
-String        auditExpectedRFID = "";
-unsigned long auditStartTime   = 0;
-float lastDwellTime   = 0.0;
+bool pendingAudit = false;
+String auditExpectedRFID = "";
+unsigned long auditStartTime = 0;
+float lastDwellTime = 0.0;
 float lastInterScanTime = 0.0;
 
 Preferences preferences;
-String cachedMasterRFID  = "";
-int    cachedPortalOpen  = 1;
-int    masterFingerSlot  = 200;
+String cachedMasterRFID = "";
+int cachedPortalOpen = 1;
+int masterFingerSlot = 200;
 
 // Whitelist
 #define MAX_STUDENTS 200
 struct WhitelistEntry {
-  int  student_id;
-  int  fingerprint_id;
+  int student_id;
+  int fingerprint_id;
   char rfid_uid[15];
   char name[16];
   bool is_blacklisted;
 };
 WhitelistEntry whitelist[MAX_STUDENTS];
-int  whitelistCount      = 0;
+int whitelistCount = 0;
 unsigned long lastWhitelistFetch = 0;
 
 // Timezone (Bangladesh UTC+6)
 #define TIMEZONE_OFFSET_SEC 21600
 
 // UI Animation
-bool  animFrame    = false;
+bool animFrame = false;
 unsigned long lastAnimTime = 0;
 
 // Offline Duplicate Prevention
 #define MAX_OFFLINE_CACHE 200
 String offlineCache[MAX_OFFLINE_CACHE];
-int    offlineCacheCount = 0;
-String offlineCacheDate  = "";
+int offlineCacheCount = 0;
+String offlineCacheDate = "";
 
 // Bitmap icons
-const unsigned char bmp_wifi[] PROGMEM = {
-  0x3C, 0x42, 0x81, 0x00, 0x3C, 0x42, 0x00, 0x18
-};
-const unsigned char bmp_server[] PROGMEM = {
-  0x7E, 0x5A, 0x7E, 0x00, 0x7E, 0x5A, 0x7E, 0x00
-};
+const unsigned char bmp_wifi[] PROGMEM = {0x3C, 0x42, 0x81, 0x00,
+                                          0x3C, 0x42, 0x00, 0x18};
+const unsigned char bmp_server[] PROGMEM = {0x7E, 0x5A, 0x7E, 0x00,
+                                            0x7E, 0x5A, 0x7E, 0x00};
 
 // ========================= Forward Declarations ====================
-String doHttpGet(String endpoint, int timeoutMs = 2500, int* outHttpCode = NULL);
-String doHttpPost(String endpoint, String jsonPayload, int timeoutMs = 4000, int* outHttpCode = NULL);
-bool   doHttpPostMultipart(String endpoint, const char* rfidUid,
-                           int timeoutMs, String& responseOut);
-void   playAudio(String type);
-void   updateDisplaySafe();
-void   showBootSequence();
-void   logDataToSD(String jsonString);
-void   countUnsentRecords();
-void   fetchWhitelist();
-void   triggerIndicatorSafe(bool success, String msg);
-void   handleCaptureRfid();
-void   handleAttendance();
-void   handleFingerprintEnrollment();
-void   handleRFIDEnrollment();
-void   handleDeleteAll();
-void   handleWiFiSetup();
-void   processAttendanceData(String sensorType, String identifier);
-void   setupI2S();
-void   buildWavHeader(uint8_t* header, int dataSize);
-int    getWhitelistIndexByRFID(String rfid);
-bool   isDuplicateOfflineScan(int studentId);
-void   addToOfflineCache(int studentId);
-void   loadOfflineCache();
+String doHttpGet(String endpoint, int timeoutMs = 2500,
+                 int *outHttpCode = NULL);
+String doHttpPost(String endpoint, String jsonPayload, int timeoutMs = 4000,
+                  int *outHttpCode = NULL);
+bool doHttpPostMultipart(String endpoint, const char *rfidUid, int timeoutMs,
+                         String &responseOut);
+void playAudio(String type);
+void updateDisplaySafe();
+void showBootSequence();
+void logDataToSD(String jsonString);
+void countUnsentRecords();
+void fetchWhitelist();
+void triggerIndicatorSafe(bool success, String msg);
+void handleCaptureRfid();
+void handleAttendance();
+void handleFingerprintEnrollment();
+void handleRFIDEnrollment();
+void handleDeleteAll();
+void handleTestRecord();
+void handleWiFiSetup();
+void processAttendanceData(String sensorType, String identifier);
+void setupI2S();
+void buildWavHeader(uint8_t *header, int dataSize);
+int getWhitelistIndexByRFID(String rfid);
+bool isDuplicateOfflineScan(int studentId);
+void addToOfflineCache(int studentId);
+void loadOfflineCache();
 String getISOTime();
 String getLocalDateStr();
-void   fetchTodayAttendance();
+void fetchTodayAttendance();
+void loadWhitelistFromSD(); // Load /whitelist.txt from SD into RAM at boot
 
 // ========================= I2S Setup ===============================
 void setupI2S() {
   i2s_config_t cfg = {
-    .mode                 = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
-    .sample_rate          = VOICE_SAMPLE_RATE,
-    .bits_per_sample      = I2S_BITS_PER_SAMPLE_16BIT,
-    .channel_format       = I2S_CHANNEL_FMT_ONLY_LEFT,  // INMP441 mono
-    .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
-    .intr_alloc_flags     = ESP_INTR_FLAG_LEVEL1,
-    .dma_buf_count        = 8,
-    .dma_buf_len          = 512,
-    .use_apll             = false,
-    .tx_desc_auto_clear   = false,
-    .fixed_mclk           = 0
-  };
-  i2s_pin_config_t pins = {
-    .bck_io_num    = I2S_SCK_PIN,
-    .ws_io_num     = I2S_WS_PIN,
-    .data_out_num  = I2S_PIN_NO_CHANGE,
-    .data_in_num   = I2S_SD_PIN
-  };
+      .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+      .sample_rate = VOICE_SAMPLE_RATE,
+      .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+      .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, // INMP441 mono
+      .communication_format =
+          (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
+      .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+      .dma_buf_count = 8,
+      .dma_buf_len = 1024,
+      .use_apll = false,
+      .tx_desc_auto_clear = false,
+      .fixed_mclk = 0};
+  i2s_pin_config_t pins = {.bck_io_num = I2S_SCK_PIN,
+                           .ws_io_num = I2S_WS_PIN,
+                           .data_out_num = I2S_PIN_NO_CHANGE,
+                           .data_in_num = I2S_SD_PIN};
   i2s_driver_install(I2S_PORT, &cfg, 0, NULL);
   i2s_set_pin(I2S_PORT, &pins);
   i2s_zero_dma_buffer(I2S_PORT);
 }
 
 // ========================= WAV Header Builder ======================
-void buildWavHeader(uint8_t* h, int dataSize) {
-  int fileSize  = dataSize + 36;
-  int byteRate  = VOICE_SAMPLE_RATE * (VOICE_BITS / 8);
+void buildWavHeader(uint8_t *h, int dataSize) {
+  int fileSize = dataSize + 36;
+  int byteRate = VOICE_SAMPLE_RATE * (VOICE_BITS / 8);
   // RIFF header
-  h[0]='R'; h[1]='I'; h[2]='F'; h[3]='F';
-  h[4]=(fileSize)&0xFF;   h[5]=(fileSize>>8)&0xFF;
-  h[6]=(fileSize>>16)&0xFF; h[7]=(fileSize>>24)&0xFF;
-  h[8]='W'; h[9]='A'; h[10]='V'; h[11]='E';
+  h[0] = 'R';
+  h[1] = 'I';
+  h[2] = 'F';
+  h[3] = 'F';
+  h[4] = (fileSize) & 0xFF;
+  h[5] = (fileSize >> 8) & 0xFF;
+  h[6] = (fileSize >> 16) & 0xFF;
+  h[7] = (fileSize >> 24) & 0xFF;
+  h[8] = 'W';
+  h[9] = 'A';
+  h[10] = 'V';
+  h[11] = 'E';
   // fmt chunk
-  h[12]='f'; h[13]='m'; h[14]='t'; h[15]=' ';
-  h[16]=16; h[17]=0; h[18]=0; h[19]=0;   // sub-chunk size
-  h[20]=1;  h[21]=0;                      // PCM format
-  h[22]=1;  h[23]=0;                      // mono
-  h[24]=(VOICE_SAMPLE_RATE)&0xFF;     h[25]=(VOICE_SAMPLE_RATE>>8)&0xFF;
-  h[26]=(VOICE_SAMPLE_RATE>>16)&0xFF; h[27]=(VOICE_SAMPLE_RATE>>24)&0xFF;
-  h[28]=(byteRate)&0xFF;   h[29]=(byteRate>>8)&0xFF;
-  h[30]=(byteRate>>16)&0xFF; h[31]=(byteRate>>24)&0xFF;
-  h[32]=(VOICE_BITS/8); h[33]=0;      // block align
-  h[34]=VOICE_BITS;     h[35]=0;      // bits per sample
+  h[12] = 'f';
+  h[13] = 'm';
+  h[14] = 't';
+  h[15] = ' ';
+  h[16] = 16;
+  h[17] = 0;
+  h[18] = 0;
+  h[19] = 0; // sub-chunk size
+  h[20] = 1;
+  h[21] = 0; // PCM format
+  h[22] = 1;
+  h[23] = 0; // mono
+  h[24] = (VOICE_SAMPLE_RATE) & 0xFF;
+  h[25] = (VOICE_SAMPLE_RATE >> 8) & 0xFF;
+  h[26] = (VOICE_SAMPLE_RATE >> 16) & 0xFF;
+  h[27] = (VOICE_SAMPLE_RATE >> 24) & 0xFF;
+  h[28] = (byteRate) & 0xFF;
+  h[29] = (byteRate >> 8) & 0xFF;
+  h[30] = (byteRate >> 16) & 0xFF;
+  h[31] = (byteRate >> 24) & 0xFF;
+  h[32] = (VOICE_BITS / 8);
+  h[33] = 0; // block align
+  h[34] = VOICE_BITS;
+  h[35] = 0; // bits per sample
   // data chunk
-  h[36]='d'; h[37]='a'; h[38]='t'; h[39]='a';
-  h[40]=(dataSize)&0xFF;   h[41]=(dataSize>>8)&0xFF;
-  h[42]=(dataSize>>16)&0xFF; h[43]=(dataSize>>24)&0xFF;
-}
-// ========================= I2C Software Reset ======================
-// Clears stuck I2C bus if the display held SDA low due to bad power sequence
-void I2C_ClearBus(uint8_t sda_pin, uint8_t scl_pin) {
-  pinMode(sda_pin, INPUT_PULLUP);
-  pinMode(scl_pin, INPUT_PULLUP);
-  delay(10);
-  
-  pinMode(scl_pin, OUTPUT);
-  for (int i = 0; i < 9; i++) {
-    digitalWrite(scl_pin, HIGH);
-    delayMicroseconds(20);
-    digitalWrite(scl_pin, LOW);
-    delayMicroseconds(20);
-  }
-  
-  // Generate STOP condition
-  pinMode(sda_pin, OUTPUT);
-  digitalWrite(sda_pin, LOW);
-  delayMicroseconds(20);
-  digitalWrite(scl_pin, HIGH);
-  delayMicroseconds(20);
-  digitalWrite(sda_pin, HIGH);
-  delay(10);
+  h[36] = 'd';
+  h[37] = 'a';
+  h[38] = 't';
+  h[39] = 'a';
+  h[40] = (dataSize) & 0xFF;
+  h[41] = (dataSize >> 8) & 0xFF;
+  h[42] = (dataSize >> 16) & 0xFF;
+  h[43] = (dataSize >> 24) & 0xFF;
 }
 
 // ========================= Setup ===================================
@@ -249,23 +255,10 @@ void setup() {
   pinMode(BUZZER, OUTPUT);
   digitalWrite(BUZZER, LOW);
 
-  // ==================================================================
-  // HARDWARE FIX: Optional OLED Power Control Pin
-  // If your buck converter rises too slowly, the OLED Power-On-Reset (POR) fails.
-  // Fix: Connect OLED VCC to an unused GPIO (e.g. GPIO 32) instead of the 3.3V rail.
-  // Uncomment the two lines below to enable this fix:
-  // #define OLED_POWER_PIN 32
-  // ==================================================================
-  
-  #ifdef OLED_POWER_PIN
-    pinMode(OLED_POWER_PIN, OUTPUT);
-    digitalWrite(OLED_POWER_PIN, LOW); // Keep OLED off initially
-  #endif
-
   // Semaphores
   displayMutex = xSemaphoreCreateMutex();
-  sdMutex      = xSemaphoreCreateMutex();
-  wifiMutex    = xSemaphoreCreateMutex();
+  sdMutex = xSemaphoreCreateMutex();
+  wifiMutex = xSemaphoreCreateMutex();
 
   // FreeRTOS EventGroup for voice coordination
   voiceEventGroup = xEventGroupCreate();
@@ -277,18 +270,13 @@ void setup() {
   // ── Power Rail Stabilization ──────────────────────────────────────
   // Wait for the buck converter 5V → ESP32 LDO 3.3V rail to fully
   // settle before initializing the OLED SSD1306 charge pump.
+  // On battery power, the startup current spike (ESP32 boot + I2S mic
+  // + INMP441 + PN532 + fingerprint) can droop the 3.3V rail long
+  // enough to fail the OLED silently. 1500ms covers the worst case.
   delay(1500);
   Serial.println("[Boot] Power rails settled. Initializing peripherals...");
-  
-  #ifdef OLED_POWER_PIN
-    // Now give the OLED a sharp, fast 0V -> 3.3V power spike to ensure POR triggers.
-    digitalWrite(OLED_POWER_PIN, HIGH);
-    delay(200); // Give OLED 200ms to boot up
-  #endif
   // ─────────────────────────────────────────────────────────────────
 
-  // Software clear of I2C bus in case OLED got stuck during slow voltage ramp
-  I2C_ClearBus(21, 22);
   Wire.begin(21, 22);
 
   // OLED — retry up to 5 times in case rail is still settling
@@ -303,15 +291,19 @@ void setup() {
   }
   if (!oledOk) {
     // Last resort: halts with serial message so USB debug still works
-    Serial.println(F("[OLED] SSD1306 failed after 5 attempts — check 3.3V rail!"));
-    for (;;);
+    Serial.println(
+        F("[OLED] SSD1306 failed after 5 attempts — check 3.3V rail!"));
+    for (;;)
+      ;
   }
   display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
+  display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
   display.setTextSize(2);
-  display.setCursor(25, 20); display.print("TEAM X");
+  display.setCursor(25, 20);
+  display.print("TEAM X");
   display.setTextSize(1);
-  display.setCursor(15, 45); display.print("Initializing...");
+  display.setCursor(15, 45);
+  display.print("Initializing...");
   display.display();
   playAudio("startup");
   delay(1500);
@@ -321,7 +313,8 @@ void setup() {
     rtcReady = false;
   } else {
     rtcReady = true;
-    if (rtc.lostPower()) rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    if (rtc.lostPower())
+      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 
   // SD Card (mandatory — halt until present)
@@ -330,21 +323,35 @@ void setup() {
       xSemaphoreGive(sdMutex);
       display.clearDisplay();
       display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-      display.setTextColor(SSD1306_BLACK);
-      display.setCursor(4, 4); display.print("!! SD CARD MISSING !!");
-      display.setTextColor(SSD1306_WHITE);
-      display.setCursor(0, 24); display.print("Insert SD Card Now");
-      display.setCursor(0, 36); display.print("System is HALTED.");
-      display.setCursor(0, 50); display.print("Retrying...");
+      display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+      display.setCursor(4, 4);
+      display.print("!! SD CARD MISSING !!");
+      display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+      display.setCursor(0, 24);
+      display.print("Insert SD Card Now");
+      display.setCursor(0, 36);
+      display.print("System is HALTED.");
+      display.setCursor(0, 50);
+      display.print("Retrying...");
       display.display();
-      tone(BUZZER, 200, 500); delay(600);
-      tone(BUZZER, 200, 500); delay(600);
+      tone(BUZZER, 200, 500);
+      delay(600);
+      tone(BUZZER, 200, 500);
+      delay(600);
       xSemaphoreTake(sdMutex, portMAX_DELAY);
     }
-    sdReady   = true;
+    sdReady = true;
     sdTotalMB = SD.cardSize() / (1024 * 1024);
-    if (!SD.exists("/master_log.txt")) { File f = SD.open("/master_log.txt", FILE_WRITE); if(f) f.close(); }
-    if (!SD.exists("/unsent.txt"))     { File f = SD.open("/unsent.txt",     FILE_WRITE); if(f) f.close(); }
+    if (!SD.exists("/master_log.txt")) {
+      File f = SD.open("/master_log.txt", FILE_WRITE);
+      if (f)
+        f.close();
+    }
+    if (!SD.exists("/unsent.txt")) {
+      File f = SD.open("/unsent.txt", FILE_WRITE);
+      if (f)
+        f.close();
+    }
     countUnsentRecords();
     xSemaphoreGive(sdMutex);
   }
@@ -358,26 +365,47 @@ void setup() {
 
   // Fingerprint Sensor
   mySerial.begin(57600, SERIAL_8N1, RX2_PIN, TX2_PIN);
-  finger.verifyPassword();
+  if (!finger.verifyPassword()) {
+    Serial.println("[ERROR] Fingerprint sensor not found! Check TX/RX wiring!");
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+    display.setTextSize(1);
+    display.setCursor(0, 20);
+    display.print("FINGERPRINT ERROR!");
+    display.setCursor(0, 35);
+    display.print("Check AS608 Wiring");
+    display.setCursor(0, 48);
+    display.print("(TX/RX may be swapped)");
+    display.display();
+    while (1) { delay(100); }
+  }
+  finger.getParameters(); // Required by some AS608 modules to sync packet sizes
 
   // NFC
   nfc.begin();
-  if (nfc.getFirmwareVersion()) nfc.SAMConfig();
+  if (nfc.getFirmwareVersion())
+    nfc.SAMConfig();
 
   // I2S Microphone
   setupI2S();
-  Serial.println("[I2S] INMP441 microphone initialized on SD=14, WS=27, SCK=25");
+  Serial.println(
+      "[I2S] INMP441 microphone initialized on SD=14, WS=27, SCK=25");
+
+  // Pre-load whitelist from SD into RAM — fingerprint attendance works
+  // instantly from power-on, even before WiFi/server connects.
+  loadWhitelistFromSD();
 
   showBootSequence();
 
   // =================== FreeRTOS Task Creation ====================
   // Core 0: Network + Voice Recording (both run here cooperatively)
-  xTaskCreatePinnedToCore(networkTask,   "NetworkTask",   12000, NULL, 1,  NULL, 0);
-  xTaskCreatePinnedToCore(voiceTask,     "VoiceTask",     8000,  NULL, 2,  NULL, 0);
+  xTaskCreatePinnedToCore(networkTask, "NetworkTask", 12000, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(voiceTask, "VoiceTask", 8000, NULL, 2, NULL, 0);
   // Core 1: Sensor reading + OLED UI
-  xTaskCreatePinnedToCore(sensorUITask,  "SensorUITask",  10000, NULL, 1,  NULL, 1);
+  xTaskCreatePinnedToCore(sensorUITask, "SensorUITask", 10000, NULL, 1, NULL,
+                          1);
   // Core 0: SD Card watchdog (high priority)
-  xTaskCreatePinnedToCore(sdGuardTask,   "SDGuardTask",   4000,  NULL, 3,  NULL, 0);
+  xTaskCreatePinnedToCore(sdGuardTask, "SDGuardTask", 4000, NULL, 3, NULL, 0);
 }
 
 void loop() { vTaskDelete(NULL); }
@@ -385,23 +413,22 @@ void loop() { vTaskDelete(NULL); }
 // ========================= CORE 0: Voice Recording Task ============
 // Records 9 seconds of I2S audio directly to SD card in 1KB chunks.
 // No large RAM buffer required — works on any ESP32.
-void voiceTask(void* parameter) {
+void voiceTask(void *parameter) {
   for (;;) {
     // Block until Core 1 signals a voice capture request
-    EventBits_t bits = xEventGroupWaitBits(
-      voiceEventGroup,
-      VOICE_REQUEST_BIT | VOICE_ABORT_BIT,
-      pdTRUE,    // clear bits on exit
-      pdFALSE,   // wait for ANY bit
-      portMAX_DELAY
-    );
+    EventBits_t bits = xEventGroupWaitBits(voiceEventGroup,
+                                           VOICE_REQUEST_BIT | VOICE_ABORT_BIT,
+                                           pdTRUE,  // clear bits on exit
+                                           pdFALSE, // wait for ANY bit
+                                           portMAX_DELAY);
 
     if (bits & VOICE_ABORT_BIT) {
       voiceFileSaved = false;
       xEventGroupSetBits(voiceEventGroup, VOICE_DONE_BIT);
       continue;
     }
-    if (!(bits & VOICE_REQUEST_BIT)) continue;
+    if (!(bits & VOICE_REQUEST_BIT))
+      continue;
 
     voiceFileSaved = false;
 
@@ -413,7 +440,8 @@ void voiceTask(void* parameter) {
     }
 
     // Remove previous temp file and open new one
-    if (SD.exists(VOICE_TEMP_PATH)) SD.remove(VOICE_TEMP_PATH);
+    if (SD.exists(VOICE_TEMP_PATH))
+      SD.remove(VOICE_TEMP_PATH);
     File wavFile = SD.open(VOICE_TEMP_PATH, FILE_WRITE);
     if (!wavFile) {
       xSemaphoreGive(sdMutex);
@@ -427,10 +455,10 @@ void voiceTask(void* parameter) {
     wavFile.write(header, 44);
 
     // ── Record audio in 1KB chunks ──
-    static uint8_t chunk[1024];   // static: lives in BSS, not stack
-    int remaining    = VOICE_DATA_BYTES;
+    static uint8_t chunk[1024]; // static: lives in BSS, not stack
+    int remaining = VOICE_DATA_BYTES;
     int bytesWritten = 0;
-    bool aborted     = false;
+    bool aborted = false;
     size_t bytesRead = 0;
 
     Serial.println("[Voice] Recording to SD card (9 s)...");
@@ -444,12 +472,14 @@ void voiceTask(void* parameter) {
       }
 
       int chunkSize = (remaining > 1024) ? 1024 : remaining;
-      esp_err_t err = i2s_read(I2S_PORT, chunk, chunkSize, &bytesRead, pdMS_TO_TICKS(200));
-      if (err != ESP_OK || bytesRead == 0) continue;
+      esp_err_t err =
+          i2s_read(I2S_PORT, chunk, chunkSize, &bytesRead, pdMS_TO_TICKS(200));
+      if (err != ESP_OK || bytesRead == 0)
+        continue;
 
       wavFile.write(chunk, bytesRead);
       bytesWritten += bytesRead;
-      remaining    -= bytesRead;
+      remaining -= bytesRead;
     }
 
     // Fix the WAV header with actual data size
@@ -470,7 +500,7 @@ void voiceTask(void* parameter) {
 }
 
 // ========================= CORE 0: Network & Sync Task =============
-void networkTask(void* parameter) {
+void networkTask(void *parameter) {
   bool forceWifi = preferences.getBool("force_wifi", false);
 
   if (forceWifi) {
@@ -488,86 +518,122 @@ void networkTask(void* parameter) {
   WiFiManager wm;
   wm.setConnectTimeout(15);
   wm.setConfigPortalBlocking(false);
-  if (!wm.autoConnect("TEAM_X_SETUP", "admin123")) {}
+  if (!wm.autoConnect("TEAM_X_SETUP", "admin123")) {
+  }
 
-  unsigned long lastPollTime       = 0;
-  unsigned long lastSyncTime       = 0;
-  unsigned long lastCacheSync      = 0;
+  unsigned long lastPollTime = 0;
+  unsigned long lastSyncTime = 0;
+  unsigned long lastCacheSync = 0;
   unsigned long lastSuccessfulPing = 0;
-  unsigned long urlDiscoveryTime   = 0;
+  unsigned long urlDiscoveryTime = 0;
 
   for (;;) {
     wm.process();
     bool wifiConnected = (WiFi.status() == WL_CONNECTED);
 
     if (wifiConnected) {
+      static bool ntpConfigured = false;
+      if (!ntpConfigured) {
+        configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // Fetch UTC time
+        ntpConfigured = true;
+      }
+      
+      if (ntpConfigured && rtcReady) {
+        static bool rtcUpdatedFromNTP = false;
+        if (!rtcUpdatedFromNTP) {
+          struct tm timeinfo;
+          // non-blocking check
+          if (getLocalTime(&timeinfo, 10)) {
+            if (timeinfo.tm_year > (2024 - 1900)) {
+              rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+              rtcUpdatedFromNTP = true;
+              Serial.println("[NTP] RTC successfully synced with internet time (UTC).");
+            }
+          }
+        }
+      }
+
       // mDNS auto-discovery
       if (serverBaseURL == "") {
-        if (!MDNS.begin("esp32-node")) {}
+        if (!MDNS.begin("esp32-node")) {
+        }
         int n = MDNS.queryService("http", "tcp");
         bool found = false;
         for (int i = 0; i < n; i++) {
-          if (MDNS.hostname(i).indexOf("esp32-node") >= 0 || MDNS.port(i) == 5005) {
-            serverBaseURL = "http://" + MDNS.address(i).toString() + ":" + String(MDNS.port(i));
+          if (MDNS.hostname(i).indexOf("esp32-node") >= 0 ||
+              MDNS.port(i) == 5005) {
+            serverBaseURL = "http://" + MDNS.address(i).toString() + ":" +
+                            String(MDNS.port(i));
             found = true;
             break;
           }
         }
-        if (!found) serverBaseURL = "http://esp32-node.local:5005";
+        if (!found)
+          serverBaseURL = "http://esp32-node.local:5005";
         lastSuccessfulPing = 0;
-        urlDiscoveryTime   = millis();
+        urlDiscoveryTime = millis();
       }
 
-      isOnline = (serverBaseURL != "" && lastSuccessfulPing > urlDiscoveryTime &&
-                  (millis() - lastSuccessfulPing <= 10000));
+      isOnline =
+          (serverBaseURL != "" && lastSuccessfulPing > urlDiscoveryTime &&
+           (millis() - lastSuccessfulPing <= 10000));
 
-      unsigned long timeSinceActivity = millis() - (lastSuccessfulPing > urlDiscoveryTime ?
-                                                     lastSuccessfulPing : urlDiscoveryTime);
+      unsigned long timeSinceActivity =
+          millis() - (lastSuccessfulPing > urlDiscoveryTime ? lastSuccessfulPing
+                                                            : urlDiscoveryTime);
       if (timeSinceActivity > 30000 && serverBaseURL != "") {
         serverBaseURL = "";
-        isOnline      = false;
+        isOnline = false;
       }
 
       // Poll server status every 2 s
       if (millis() - lastPollTime > 2000 && serverBaseURL != "") {
         int httpCode = 0;
-        String responsePayload = doHttpGet("/api/esp32/status", 2500, &httpCode);
+        String responsePayload =
+            doHttpGet("/api/esp32/status", 2500, &httpCode);
         if (httpCode == 200) {
-          isOnline          = true;
+          isOnline = true;
           lastSuccessfulPing = millis();
           JsonDocument doc;
           deserializeJson(doc, responsePayload);
           String newMode = doc["mode"].as<String>();
-          if (!doc["assign_id"].isNull()) targetID = doc["assign_id"].as<int>();
+          if (!doc["assign_id"].isNull())
+            targetID = doc["assign_id"].as<int>();
 
           if (newMode == "force_audit") {
-            pendingAudit      = true;
+            pendingAudit = true;
             auditExpectedRFID = "SIMULATED";
-            auditStartTime    = millis();
+            auditStartTime = millis();
             playAudio("error");
             if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
               display.clearDisplay();
               display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-              display.setTextColor(SSD1306_BLACK);
-              display.setCursor(4, 4); display.print("SECURITY AUDIT");
-              display.setTextColor(SSD1306_WHITE);
-              display.setCursor(0, 24); display.print("Proxy Suspected!");
-              display.setCursor(0, 36); display.print("Verify Identity:");
-              display.setCursor(0, 50); display.print("Place Fingerprint!");
+              display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+              display.setCursor(4, 4);
+              display.print("SECURITY AUDIT");
+              display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+              display.setCursor(0, 24);
+              display.print("Proxy Suspected!");
+              display.setCursor(0, 36);
+              display.print("Verify Identity:");
+              display.setCursor(0, 50);
+              display.print("Place Fingerprint!");
               display.display();
               xSemaphoreGive(displayMutex);
             }
             currentMode = "attendance";
           } else if (newMode == "enroll_master_finger") {
-            if (currentMode == "attendance") currentMode = "enroll_master_finger";
+            if (currentMode == "attendance")
+              currentMode = "enroll_master_finger";
           } else if (newMode == "attendance") {
-            bool activeOp = (currentMode == "enroll_fingerprint"  ||
-                             currentMode == "enroll_rfid"          ||
-                             currentMode == "enroll_master_finger" ||
-                             currentMode == "capture_rfid"         ||
-                             currentMode == "delete_all"           ||
-                             currentMode == "wifi_setup");
-            if (!activeOp) currentMode = "attendance";
+            bool activeOp =
+                (currentMode == "enroll_fingerprint" ||
+                 currentMode == "enroll_rfid" ||
+                 currentMode == "enroll_master_finger" ||
+                 currentMode == "capture_rfid" || currentMode == "delete_all" ||
+                 currentMode == "wifi_setup");
+            if (!activeOp)
+              currentMode = "attendance";
           } else if (newMode != currentMode) {
             currentMode = newMode;
           }
@@ -600,15 +666,18 @@ void networkTask(void* parameter) {
       // Whitelist refresh (24 h or missing)
       if (serverBaseURL != "") {
         bool needsUpdate = false;
-        if (whitelistCount == 0 && !sdReady) needsUpdate = true;
-        else if (sdReady && millis() - lastWhitelistFetch > 86400000UL) needsUpdate = true;
-        else if (sdReady && !SD.exists("/whitelist.txt")) needsUpdate = true;
+        if (whitelistCount == 0 && !sdReady)
+          needsUpdate = true;
+        else if (sdReady && millis() - lastWhitelistFetch > 86400000UL)
+          needsUpdate = true;
+        else if (sdReady && !SD.exists("/whitelist.txt"))
+          needsUpdate = true;
 
         if (needsUpdate || lastWhitelistFetch == 0) {
           fetchWhitelist();
           fetchTodayAttendance();
           lastWhitelistFetch = millis();
-          lastCacheSync      = millis();
+          lastCacheSync = millis();
         }
       }
 
@@ -618,15 +687,16 @@ void networkTask(void* parameter) {
         lastCacheSync = millis();
       }
 
-      // Batch sync offline records
-      if (millis() - lastSyncTime > 10000 && sdReady && unsentCount > 0 && serverBaseURL != "") {
+      // Batch sync offline records — only when online AND there is actually unsent data
+      if (isOnline && sdReady && unsentCount > 0 &&
+          (millis() - lastSyncTime > 10000)) {
         isSyncing = true;
         updateDisplaySafe();
 
         const int BATCH_SIZE = 20;
         String batchData[BATCH_SIZE];
-        int    batchCount  = 0;
-        bool   readSuccess = false;
+        int batchCount = 0;
+        bool readSuccess = false;
 
         if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
           File file = SD.open("/unsent.txt", FILE_READ);
@@ -634,7 +704,8 @@ void networkTask(void* parameter) {
             while (file.available() && batchCount < BATCH_SIZE) {
               String payload = file.readStringUntil('\n');
               payload.trim();
-              if (payload.length() > 0) batchData[batchCount++] = payload;
+              if (payload.length() > 0)
+                batchData[batchCount++] = payload;
             }
             file.close();
             readSuccess = true;
@@ -647,56 +718,67 @@ void networkTask(void* parameter) {
           String jsonArray = "[";
           for (int i = 0; i < batchCount; i++) {
             jsonArray += batchData[i];
-            if (i < batchCount - 1) jsonArray += ",";
+            if (i < batchCount - 1)
+              jsonArray += ",";
           }
           jsonArray += "]";
           int httpCode = 0;
           doHttpPost("/api/esp32/attendance/batch", jsonArray, 4000, &httpCode);
-          if (httpCode == 200) batchSuccess = true;
+          if (httpCode == 200)
+            batchSuccess = true;
         }
 
         if (batchSuccess) {
           if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
-            File file    = SD.open("/unsent.txt", FILE_READ);
-            File tmpFile = SD.open("/temp.txt",   FILE_WRITE);
+            File file = SD.open("/unsent.txt", FILE_READ);
+            File tmpFile = SD.open("/temp.txt", FILE_WRITE);
             if (file && tmpFile) {
               int skipped = 0;
               while (file.available() && skipped < batchCount) {
                 String payload = file.readStringUntil('\n');
                 payload.trim();
-                if (payload.length() > 0) skipped++;
+                if (payload.length() > 0)
+                  skipped++;
               }
               while (file.available()) {
                 String payload = file.readStringUntil('\n');
                 payload.trim();
-                if (payload.length() > 0) tmpFile.println(payload);
+                if (payload.length() > 0)
+                  tmpFile.println(payload);
               }
-              file.close(); tmpFile.close();
+              file.close();
+              tmpFile.close();
               SD.remove("/unsent.txt");
               SD.rename("/temp.txt", "/unsent.txt");
               countUnsentRecords();
             } else {
-              if (file)    file.close();
-              if (tmpFile) tmpFile.close();
+              if (file)
+                file.close();
+              if (tmpFile)
+                tmpFile.close();
             }
             xSemaphoreGive(sdMutex);
           }
         }
 
         isSyncing = false;
+        lastSyncTime = millis();
         if (unsentCount == 0 && offlineCacheCount > 0) {
           playAudio("success");
           offlineCacheCount = 0;
         }
+      } else if (millis() - lastSyncTime > 10000) {
+        // Nothing to sync (offline or no unsent records) — reset timer quietly
         lastSyncTime = millis();
       }
+
     }
 
     // SD remount retry
     if (!sdReady && (millis() - lastSyncTime > 15000)) {
       if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
         if (SD.begin(SD_CS_PIN)) {
-          sdReady   = true;
+          sdReady = true;
           sdTotalMB = SD.cardSize() / (1024 * 1024);
           countUnsentRecords();
           playAudio("success");
@@ -706,60 +788,133 @@ void networkTask(void* parameter) {
       lastSyncTime = millis();
     }
 
+    // ── Reconnect Detection ─────────────────────────────────────────
+    // When the server comes back online after being offline, immediately
+    // refresh whitelist and today's attendance cache so the device has
+    // the latest student data and duplication prevention is accurate.
+    if (isOnline && !wasOnline) {
+      Serial.println("[Network] Server reconnected — refreshing whitelist & "
+                     "attendance cache.");
+      fetchWhitelist();
+      fetchTodayAttendance();
+      lastWhitelistFetch = millis();
+      lastCacheSync = millis();
+    }
+    wasOnline = isOnline;
+    // ────────────────────────────────────────────────────────────────
+
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
 // ========================= CORE 0: SD Guard Task ===================
-void sdGuardTask(void* parameter) {
+void sdGuardTask(void *parameter) {
+  static int consecutiveFailCycles = 0;   // must fail N cycles in a row
+  const  int FAIL_THRESHOLD = 3;          // 3 × 15 s = 45 s of failures needed
+  const  int CHECK_INTERVAL = 15000;      // ms between checks
+
   for (;;) {
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    bool stillReady = true;
-    if (xSemaphoreTake(sdMutex, pdMS_TO_TICKS(500))) {
-      File root = SD.open("/");
-      if (root) { stillReady = true; root.close(); }
-      else       { stillReady = false; }
-      xSemaphoreGive(sdMutex);
+    vTaskDelay(CHECK_INTERVAL / portTICK_PERIOD_MS);
+
+    // Try to acquire the mutex with a short timeout.
+    // If it's busy (voice/sync task using SD), skip — card is clearly present.
+    if (!xSemaphoreTake(sdMutex, pdMS_TO_TICKS(200))) {
+      // mutex busy = someone else is using SD = card must be OK
+      consecutiveFailCycles = 0;
+      continue;
     }
-    if (!stillReady) {
-      sdReady   = false;
-      isSyncing = true;
-      while (true) {
-        if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(100))) {
-          display.clearDisplay();
-          display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-          display.setTextColor(SSD1306_BLACK);
-          display.setCursor(4, 4); display.print("!! SD CARD REMOVED !!");
-          display.setTextColor(SSD1306_WHITE);
-          display.setCursor(0, 20); display.print("INSERT SD CARD NOW");
-          display.setCursor(0, 32); display.print("All scanning halted.");
-          display.setCursor(0, 44); display.print("Data CANNOT be saved");
-          display.setCursor(0, 56); display.print("without SD storage.");
-          display.display();
-          xSemaphoreGive(displayMutex);
+
+    // Small settle delay in case we grabbed the mutex right after a big write
+    delay(20);
+
+    // --- Primary check: card type (very fast, non-destructive) ---
+    bool cardPresent = (SD.cardType() != CARD_NONE);
+
+    // --- Secondary check: open root dir (only if cardType looks OK) ---
+    if (cardPresent) {
+      File root = SD.open("/");
+      if (root) {
+        root.close();
+        consecutiveFailCycles = 0; // card is healthy
+      } else {
+        // SD.open failed but cardType said card is there — could be transient
+        // Retry once after a brief settle
+        delay(100);
+        File root2 = SD.open("/");
+        if (root2) {
+          root2.close();
+          consecutiveFailCycles = 0;
+        } else {
+          consecutiveFailCycles++;
+          Serial.printf("[SDGuard] Open / failed (cycle %d/%d)\n",
+                        consecutiveFailCycles, FAIL_THRESHOLD);
         }
-        tone(BUZZER, 300, 400); delay(500);
-        if (xSemaphoreTake(sdMutex, pdMS_TO_TICKS(500))) {
-          if (SD.begin(SD_CS_PIN)) {
-            sdReady = true;
-            if (!SD.exists("/master_log.txt")) { File f = SD.open("/master_log.txt", FILE_WRITE); if(f) f.close(); }
-            if (!SD.exists("/unsent.txt"))     { File f = SD.open("/unsent.txt",     FILE_WRITE); if(f) f.close(); }
-            countUnsentRecords();
-            xSemaphoreGive(sdMutex);
-            isSyncing = false;
-            playAudio("success");
-            break;
+      }
+    } else {
+      consecutiveFailCycles++;
+      Serial.printf("[SDGuard] cardType = NONE (cycle %d/%d)\n",
+                    consecutiveFailCycles, FAIL_THRESHOLD);
+    }
+
+    xSemaphoreGive(sdMutex);
+
+    // Only declare error after N consecutive bad cycles (not a one-off glitch)
+    if (consecutiveFailCycles < FAIL_THRESHOLD) {
+      continue;
+    }
+
+    // ── Card genuinely missing or failed ──────────────────────────
+    consecutiveFailCycles = 0; // reset so recovery loop can re-detect
+    sdReady = false;
+    Serial.println("[SDGuard] SD card confirmed FAILED — showing error.");
+
+    while (true) {
+      if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(100))) {
+        display.clearDisplay();
+        display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(4, 4);
+        display.print("!! SD CARD ERROR !!");
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        display.setCursor(0, 20);
+        display.print("INSERT SD CARD NOW");
+        display.setCursor(0, 32);
+        display.print("Logs cannot be saved");
+        display.setCursor(0, 44);
+        display.print("Scanning still works");
+        display.display();
+        xSemaphoreGive(displayMutex);
+      }
+      tone(BUZZER, 300, 400);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+      // Try recovery
+      if (xSemaphoreTake(sdMutex, pdMS_TO_TICKS(500))) {
+        if (SD.begin(SD_CS_PIN)) {
+          sdReady = true;
+          if (!SD.exists("/master_log.txt")) {
+            File f = SD.open("/master_log.txt", FILE_WRITE);
+            if (f) f.close();
           }
+          if (!SD.exists("/unsent.txt")) {
+            File f = SD.open("/unsent.txt", FILE_WRITE);
+            if (f) f.close();
+          }
+          countUnsentRecords();
           xSemaphoreGive(sdMutex);
+          playAudio("success");
+          Serial.println("[SDGuard] SD card recovered!");
+          break;
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        xSemaphoreGive(sdMutex);
       }
     }
   }
 }
 
+
 // ========================= CORE 1: Sensor & UI Task ================
-void sensorUITask(void* parameter) {
+void sensorUITask(void *parameter) {
   for (;;) {
     // Manual serial commands
     if (Serial.available() > 0) {
@@ -775,7 +930,7 @@ void sensorUITask(void* parameter) {
 
     // Animate display every 800 ms
     if (millis() - lastAnimTime > 800) {
-      animFrame   = !animFrame;
+      animFrame = !animFrame;
       lastAnimTime = millis();
       updateDisplaySafe();
 
@@ -786,12 +941,20 @@ void sensorUITask(void* parameter) {
     }
 
     if (!isSyncing) {
-      if      (currentMode == "attendance")          handleAttendance();
-      else if (currentMode == "enroll_fingerprint")  handleFingerprintEnrollment();
-      else if (currentMode == "enroll_rfid")         handleRFIDEnrollment();
-      else if (currentMode == "capture_rfid")        handleCaptureRfid();
-      else if (currentMode == "enroll_master_finger") handleMasterFingerEnrollment();
-      else if (currentMode == "delete_all")          handleDeleteAll();
+      if (currentMode == "attendance")
+        handleAttendance();
+      else if (currentMode == "enroll_fingerprint")
+        handleFingerprintEnrollment();
+      else if (currentMode == "enroll_rfid")
+        handleRFIDEnrollment();
+      else if (currentMode == "capture_rfid")
+        handleCaptureRfid();
+      else if (currentMode == "enroll_master_finger")
+        handleMasterFingerEnrollment();
+      else if (currentMode == "delete_all")
+        handleDeleteAll();
+      else if (currentMode == "test_record")
+        handleTestRecord();
     }
 
     vTaskDelay(50 / portTICK_PERIOD_MS);
@@ -801,13 +964,12 @@ void sensorUITask(void* parameter) {
 // ========================= Voice Upload Helper =====================
 // Called from Core 1 after voice recording completes.
 // Streams the WAV file from SD card to /api/esp32/voice_submit.
-bool uploadVoiceAndGetDecision(const char* rfidUid,
-                               bool&   outProxy,
-                               String& outMatchedName,
-                               float&  outScore) {
-  outProxy       = false;
+bool uploadVoiceAndGetDecision(const char *rfidUid, bool &outProxy,
+                               bool &outWrongPhrase, String &outMatchedName,
+                               float &outScore) {
+  outProxy = false;
   outMatchedName = "";
-  outScore       = 0.0f;
+  outScore = 0.0f;
 
   if (!isOnline || serverBaseURL == "") {
     Serial.println("[Voice] Skipping upload — server offline.");
@@ -820,11 +982,9 @@ bool uploadVoiceAndGetDecision(const char* rfidUid,
 
   String responseOut;
   bool ok = doHttpPostMultipart(
-    "/api/esp32/voice_submit",
-    rfidUid,
-    30000,   // 30 s timeout for upload + SpeechBrain inference
-    responseOut
-  );
+      "/api/esp32/voice_submit", rfidUid,
+      30000, // 30 s timeout for upload + SpeechBrain inference
+      responseOut);
 
   if (!ok || responseOut.length() == 0) {
     Serial.println("[Voice] Upload failed or empty response.");
@@ -839,9 +999,13 @@ bool uploadVoiceAndGetDecision(const char* rfidUid,
   }
 
   outProxy = res["proxy"].as<bool>();
-  if (outProxy) {
+  outWrongPhrase = res["wrong_phrase"].as<bool>();
+
+  if (outWrongPhrase) {
+    Serial.println("[Voice] Wrong phrase detected by ASR. Retrying...");
+  } else if (outProxy) {
     outMatchedName = res["matched_student_name"].as<String>();
-    outScore       = res["score"].as<float>();
+    outScore = res["score"].as<float>();
     Serial.printf("[Voice] PROXY! Matched: %s at %.1f%%\n",
                   outMatchedName.c_str(), outScore);
   } else {
@@ -853,20 +1017,25 @@ bool uploadVoiceAndGetDecision(const char* rfidUid,
 
 // ========================= Multipart HTTP POST (SD streaming) ======
 // Streams WAV from SD card via raw WiFiClient — zero large malloc needed.
-bool doHttpPostMultipart(String endpoint, const char* rfidUid,
-                         int timeoutMs, String& responseOut) {
-  if (serverBaseURL == "" || WiFi.status() != WL_CONNECTED) return false;
+bool doHttpPostMultipart(String endpoint, const char *rfidUid, int timeoutMs,
+                         String &responseOut) {
+  if (serverBaseURL == "" || WiFi.status() != WL_CONNECTED)
+    return false;
 
   // --- Get WAV file size from SD ---
   int wavSize = 0;
-  if (!xSemaphoreTake(sdMutex, pdMS_TO_TICKS(2000))) return false;
+  if (!xSemaphoreTake(sdMutex, pdMS_TO_TICKS(2000)))
+    return false;
   if (!SD.exists(VOICE_TEMP_PATH)) {
     xSemaphoreGive(sdMutex);
     Serial.println("[Voice] voice_temp.wav not found on SD!");
     return false;
   }
   File wavFile = SD.open(VOICE_TEMP_PATH, FILE_READ);
-  if (!wavFile) { xSemaphoreGive(sdMutex); return false; }
+  if (!wavFile) {
+    xSemaphoreGive(sdMutex);
+    return false;
+  }
   wavSize = wavFile.size();
   // Keep file open — we'll stream from it below
 
@@ -876,7 +1045,8 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
   part1 += "Content-Disposition: form-data; name=\"rfid_uid\"\r\n\r\n";
   part1 += String(rfidUid) + "\r\n";
   part1 += "--" + boundary + "\r\n";
-  part1 += "Content-Disposition: form-data; name=\"audio\"; filename=\"voice.wav\"\r\n";
+  part1 += "Content-Disposition: form-data; name=\"audio\"; "
+           "filename=\"voice.wav\"\r\n";
   part1 += "Content-Type: audio/wav\r\n\r\n";
   String part3 = "\r\n--" + boundary + "--\r\n";
   int totalLen = part1.length() + wavSize + part3.length();
@@ -887,7 +1057,7 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
   int colonPos = hostStr.indexOf(':');
   int port = 5005;
   if (colonPos > 0) {
-    port    = hostStr.substring(colonPos + 1).toInt();
+    port = hostStr.substring(colonPos + 1).toInt();
     hostStr = hostStr.substring(0, colonPos);
   }
 
@@ -904,7 +1074,8 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
   // --- Send HTTP request line + headers ---
   client.print("POST " + endpoint + " HTTP/1.1\r\n");
   client.print("Host: " + hostStr + ":" + String(port) + "\r\n");
-  client.print("Content-Type: multipart/form-data; boundary=" + boundary + "\r\n");
+  client.print("Content-Type: multipart/form-data; boundary=" + boundary +
+               "\r\n");
   client.print("Content-Length: " + String(totalLen) + "\r\n");
   client.print("Connection: close\r\n\r\n");
 
@@ -915,7 +1086,8 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
   static uint8_t txBuf[512];
   while (wavFile.available()) {
     int n = wavFile.read(txBuf, sizeof(txBuf));
-    if (n > 0) client.write(txBuf, n);
+    if (n > 0)
+      client.write(txBuf, n);
   }
   wavFile.close();
   xSemaphoreGive(sdMutex);
@@ -927,7 +1099,7 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
   // --- Read HTTP response ---
   unsigned long deadline = millis() + (unsigned long)timeoutMs;
   bool headersEnded = false;
-  int  statusCode   = 0;
+  int statusCode = 0;
   responseOut = "";
 
   while (client.connected() && millis() < deadline) {
@@ -944,7 +1116,8 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
         responseOut += line;
       }
     }
-    if (headersEnded && responseOut.length() > 0) break;
+    if (headersEnded && responseOut.length() > 0)
+      break;
     delay(10);
   }
   client.stop();
@@ -956,7 +1129,8 @@ bool doHttpPostMultipart(String endpoint, const char* rfidUid,
 
 // ========================= fetchWhitelist ==========================
 void fetchWhitelist() {
-  if (serverBaseURL == "" || isSyncing) return;
+  if (serverBaseURL == "" || isSyncing)
+    return;
 
   HTTPClient http;
   http.begin(serverBaseURL + "/api/esp32/whitelist");
@@ -968,10 +1142,14 @@ void fetchWhitelist() {
         JsonDocument doc;
         if (!deserializeJson(doc, http.getStream())) {
           for (JsonObject elem : doc.as<JsonArray>()) {
-            file.print(elem["s"].as<int>()); file.print(",");
-            file.print(elem["f"].as<int>()); file.print(",");
-            file.print(elem["r"].as<String>()); file.print(",");
-            file.print(elem["n"].as<String>()); file.print(",");
+            file.print(elem["s"].as<int>());
+            file.print(",");
+            file.print(elem["f"].as<int>());
+            file.print(",");
+            file.print(elem["r"].as<String>());
+            file.print(",");
+            file.print(elem["n"].as<String>());
+            file.print(",");
             file.println(elem["b"].as<int>());
           }
         }
@@ -988,14 +1166,16 @@ void fetchWhitelist() {
         if (!deserializeJson(doc, httpFall.getStream())) {
           whitelistCount = 0;
           for (JsonObject elem : doc.as<JsonArray>()) {
-            if (whitelistCount >= MAX_STUDENTS) break;
-            whitelist[whitelistCount].student_id    = elem["s"];
+            if (whitelistCount >= MAX_STUDENTS)
+              break;
+            whitelist[whitelistCount].student_id = elem["s"];
             whitelist[whitelistCount].fingerprint_id = elem["f"];
             String r = elem["r"].as<String>();
             snprintf(whitelist[whitelistCount].rfid_uid, 15, "%s", r.c_str());
             String n = elem["n"].as<String>();
             snprintf(whitelist[whitelistCount].name, 16, "%s", n.c_str());
-            whitelist[whitelistCount].is_blacklisted = (elem["b"].as<int>() == 1);
+            whitelist[whitelistCount].is_blacklisted =
+                (elem["b"].as<int>() == 1);
             whitelistCount++;
           }
         }
@@ -1008,7 +1188,8 @@ void fetchWhitelist() {
 
 // ========================= fetchTodayAttendance ====================
 void fetchTodayAttendance() {
-  if (serverBaseURL == "" || isSyncing) return;
+  if (serverBaseURL == "" || isSyncing)
+    return;
   HTTPClient http;
   http.begin(serverBaseURL + "/api/esp32/today_attendance");
   int httpCode = http.GET();
@@ -1017,10 +1198,11 @@ void fetchTodayAttendance() {
     JsonDocument doc;
     if (!deserializeJson(doc, payload)) {
       offlineCacheCount = 0;
-      String todayDate  = getLocalDateStr();
-      offlineCacheDate  = todayDate;
+      String todayDate = getLocalDateStr();
+      offlineCacheDate = todayDate;
       if (sdReady && xSemaphoreTake(sdMutex, portMAX_DELAY)) {
-        if (SD.exists("/today_cache.txt")) SD.remove("/today_cache.txt");
+        if (SD.exists("/today_cache.txt"))
+          SD.remove("/today_cache.txt");
         xSemaphoreGive(sdMutex);
       }
       for (JsonVariant elem : doc.as<JsonArray>()) {
@@ -1031,28 +1213,90 @@ void fetchTodayAttendance() {
   http.end();
 }
 
+// ========================= loadWhitelistFromSD =====================
+// Reads /whitelist.txt from SD into the RAM whitelist[] array.
+// Called once at boot so fingerprint matching works instantly offline
+// without waiting for a server connection.
+void loadWhitelistFromSD() {
+  if (!sdReady)
+    return;
+  if (!xSemaphoreTake(sdMutex, pdMS_TO_TICKS(2000)))
+    return;
+  if (!SD.exists("/whitelist.txt")) {
+    xSemaphoreGive(sdMutex);
+    return;
+  }
+  File file = SD.open("/whitelist.txt", FILE_READ);
+  if (!file) {
+    xSemaphoreGive(sdMutex);
+    return;
+  }
+  whitelistCount = 0;
+  while (file.available() && whitelistCount < MAX_STUDENTS) {
+    String line = file.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0)
+      continue;
+    // Format: student_id,fingerprint_id,rfid_uid,name,blacklisted
+    int c1 = line.indexOf(',');
+    int c2 = line.indexOf(',', c1 + 1);
+    int c3 = line.indexOf(',', c2 + 1);
+    int c4 = line.indexOf(',', c3 + 1);
+    if (c1 < 0 || c2 < 0 || c3 < 0)
+      continue; // malformed line
+    whitelist[whitelistCount].student_id = line.substring(0, c1).toInt();
+    whitelist[whitelistCount].fingerprint_id =
+        line.substring(c1 + 1, c2).toInt();
+    String ruid = line.substring(c2 + 1, c3);
+    ruid.trim();
+    snprintf(whitelist[whitelistCount].rfid_uid, sizeof(whitelist[0].rfid_uid),
+             "%s", ruid.c_str());
+    String name;
+    if (c4 > c3) {
+      name = line.substring(c3 + 1, c4);
+      name.trim();
+      whitelist[whitelistCount].is_blacklisted =
+          (line.substring(c4 + 1).toInt() == 1);
+    } else {
+      name = line.substring(c3 + 1);
+      name.trim();
+      whitelist[whitelistCount].is_blacklisted = false;
+    }
+    snprintf(whitelist[whitelistCount].name, sizeof(whitelist[0].name), "%s",
+             name.c_str());
+    whitelistCount++;
+  }
+  file.close();
+  xSemaphoreGive(sdMutex);
+  Serial.printf("[Boot] Loaded %d students from SD whitelist into RAM.\n",
+                whitelistCount);
+}
+
 // ========================= UI & Display Functions ==================
+
 void showBootSequence() {
   String initSteps[] = {
-    "DDR RAM: OK",
-    String("Free Memory: " + String(ESP.getFreeHeap() / 1024) + "KB"),
-    "OS: FreeRTOS Kernel",
-    "I2S Mic: INMP441 OK",
-    (rtcReady ? "RTC Clock: SYNCED" : "RTC Clock: NOT FOUND"),
-    (sdReady  ? String("Disk: " + String(sdTotalMB) + " MB Mount") : "Storage Unavailable"),
-    "Voice Proxy: ENABLED",
-    "All Systems Nominal"
-  };
+      "DDR RAM: OK",
+      String("Free Memory: " + String(ESP.getFreeHeap() / 1024) + "KB"),
+      "OS: FreeRTOS Kernel",
+      "I2S Mic: INMP441 OK",
+      (rtcReady ? "RTC Clock: SYNCED" : "RTC Clock: NOT FOUND"),
+      (sdReady ? String("Disk: " + String(sdTotalMB) + " MB Mount")
+               : "Storage Unavailable"),
+      "Voice Proxy: ENABLED",
+      "All Systems Nominal"};
   int steps = sizeof(initSteps) / sizeof(initSteps[0]);
   playAudio("tech_init");
   for (int i = 0; i < steps; i++) {
     if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
       display.clearDisplay();
       display.fillRect(0, 0, 128, 14, SSD1306_WHITE);
-      display.setTextColor(SSD1306_BLACK);
-      display.setCursor(2, 3); display.print("SYSTEM DIAGNOSTICS");
-      display.setTextColor(SSD1306_WHITE);
-      display.setCursor(0, 25); display.println(initSteps[i]);
+      display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+      display.setCursor(2, 3);
+      display.print("SYSTEM DIAGNOSTICS");
+      display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+      display.setCursor(0, 25);
+      display.println(initSteps[i]);
       display.display();
       xSemaphoreGive(displayMutex);
     }
@@ -1064,30 +1308,44 @@ void updateDisplaySafe() {
   // Audit lockdown screen
   if (pendingAudit) {
     unsigned long remaining = 15000 - (millis() - auditStartTime);
-    if (remaining > 15000) remaining = 0;
+    if (remaining > 15000)
+      remaining = 0;
     int secsLeft = (int)(remaining / 1000);
     if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(50))) {
       display.clearDisplay();
       if (animFrame) {
         display.fillRect(0, 0, 128, 64, SSD1306_WHITE);
-        display.setTextColor(SSD1306_BLACK);
-        display.setCursor(10, 4);  display.setTextSize(1); display.print("!! SYSTEM LOCKED !!");
-        display.setCursor(8, 18);  display.print("VOICE PROXY DETECTED");
-        display.setCursor(0, 32);  display.print("Scan: Master Card");
-        display.setCursor(0, 44);  display.print("  or Fingerprint");
-        char buf[16]; snprintf(buf, sizeof(buf), "Timeout: %ds", secsLeft);
-        display.setCursor(20, 56); display.print(buf);
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(10, 4);
+        display.setTextSize(1);
+        display.print("!! SYSTEM LOCKED !!");
+        display.setCursor(8, 18);
+        display.print("VOICE PROXY DETECTED");
+        display.setCursor(0, 32);
+        display.print("Scan: Master Card");
+        display.setCursor(0, 44);
+        display.print("  or Fingerprint");
+        char buf[16];
+        snprintf(buf, sizeof(buf), "Timeout: %ds", secsLeft);
+        display.setCursor(20, 56);
+        display.print(buf);
       } else {
-        display.setTextColor(SSD1306_WHITE);
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
         display.fillRect(0, 0, 128, 14, SSD1306_WHITE);
-        display.setTextColor(SSD1306_BLACK);
-        display.setCursor(10, 4); display.print("!! SYSTEM LOCKED !!");
-        display.setTextColor(SSD1306_WHITE);
-        display.setCursor(8, 18); display.print("VOICE PROXY DETECTED");
-        display.setCursor(0, 32); display.print("Scan: Master Card");
-        display.setCursor(0, 44); display.print("  or Fingerprint");
-        char buf[16]; snprintf(buf, sizeof(buf), "Timeout: %ds", secsLeft);
-        display.setCursor(20, 56); display.print(buf);
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(10, 4);
+        display.print("!! SYSTEM LOCKED !!");
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        display.setCursor(8, 18);
+        display.print("VOICE PROXY DETECTED");
+        display.setCursor(0, 32);
+        display.print("Scan: Master Card");
+        display.setCursor(0, 44);
+        display.print("  or Fingerprint");
+        char buf[16];
+        snprintf(buf, sizeof(buf), "Timeout: %ds", secsLeft);
+        display.setCursor(20, 56);
+        display.print(buf);
       }
       display.display();
       xSemaphoreGive(displayMutex);
@@ -1098,45 +1356,84 @@ void updateDisplaySafe() {
   if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(50))) {
     display.clearDisplay();
     display.fillRect(0, 0, 128, 14, SSD1306_WHITE);
-    display.setTextColor(SSD1306_BLACK);
+    display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
     display.setTextSize(1);
     display.setCursor(2, 3);
 
-    DateTime utcNow  = rtcReady ? rtc.now() : DateTime(2000, 1, 1, 0, 0, 0);
+    DateTime utcNow = rtcReady ? rtc.now() : DateTime(2000, 1, 1, 0, 0, 0);
     DateTime localNow = DateTime(utcNow.unixtime() + TIMEZONE_OFFSET_SEC);
-    int h12  = localNow.hour() % 12;
-    if (h12 == 0) h12 = 12;
+    int h12 = localNow.hour() % 12;
+    if (h12 == 0)
+      h12 = 12;
     String ampm = localNow.hour() >= 12 ? "PM" : "AM";
     char timeBuf[9];
-    snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d %s", h12, localNow.minute(), ampm.c_str());
+    snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d %s", h12, localNow.minute(),
+             ampm.c_str());
     display.print(timeBuf);
 
     bool wifiConnected = (WiFi.status() == WL_CONNECTED);
-    if (wifiConnected) display.drawBitmap(96, 3, bmp_wifi,   8, 8, SSD1306_BLACK);
-    else               { display.setCursor(96,  3); display.print("x"); }
-    if (isOnline && serverBaseURL != "") display.drawBitmap(112, 3, bmp_server, 8, 8, SSD1306_BLACK);
-    else                                 { display.setCursor(112, 3); display.print("?"); }
+    if (wifiConnected)
+      display.drawBitmap(96, 3, bmp_wifi, 8, 8, SSD1306_BLACK);
+    else {
+      display.setCursor(96, 3);
+      display.print("x");
+    }
+    if (isOnline && serverBaseURL != "")
+      display.drawBitmap(112, 3, bmp_server, 8, 8, SSD1306_BLACK);
+    else {
+      display.setCursor(112, 3);
+      display.print("?");
+    }
 
-    display.setTextColor(SSD1306_WHITE);
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
     if (currentMode == "attendance") {
       display.setCursor(0, 20);
       if (isSyncing) {
         display.println("SYNCING SERVER...");
-        display.print("Rows Left: "); display.println(unsentCount);
-        if (animFrame) { display.drawCircle(110, 40, 10, SSD1306_WHITE); display.fillCircle(110, 40, 6, SSD1306_WHITE); }
-        else             display.drawCircle(110, 40, 8, SSD1306_WHITE);
+        display.print("Rows Left: ");
+        display.println(unsentCount);
+        if (animFrame) {
+          display.drawCircle(110, 40, 10, SSD1306_WHITE);
+          display.fillCircle(110, 40, 6, SSD1306_WHITE);
+        } else
+          display.drawCircle(110, 40, 8, SSD1306_WHITE);
       } else {
-        DateTime utcD  = rtcReady ? rtc.now() : DateTime(2000,1,1);
+        DateTime utcD = rtcReady ? rtc.now() : DateTime(2000, 1, 1);
         DateTime localD = DateTime(utcD.unixtime() + TIMEZONE_OFFSET_SEC);
         char dateBuf[12];
-        snprintf(dateBuf, sizeof(dateBuf), "%04d-%02d-%02d", localD.year(), localD.month(), localD.day());
-        display.print("Date: "); display.print(dateBuf);
-        display.setCursor(0, 32);
-        if (unsentCount == 0) display.print("All Data Synced");
-        else { display.print("Unsent Logs: "); display.print(unsentCount); }
-        display.setCursor(0, 48);
-        if (animFrame) { display.print(">> SCAN NOW >>"); display.fillCircle(115, 50, 4, SSD1306_WHITE); }
-        else           { display.print("   SCAN NOW   "); display.drawCircle(115, 50, 5, SSD1306_WHITE); }
+        snprintf(dateBuf, sizeof(dateBuf), "%04d-%02d-%02d", localD.year(),
+                 localD.month(), localD.day());
+        display.print("Date: ");
+        display.print(dateBuf);
+        if (!isOnline) {
+          // ── Offline mode: show fingerprint-only notice ──
+          display.setCursor(0, 30);
+          display.println("** OFFLINE MODE **");
+          display.setCursor(0, 42);
+          display.print("Fingerprint Only");
+          if (unsentCount > 0) {
+            display.setCursor(0, 54);
+            display.print("Unsent: ");
+            display.print(unsentCount);
+          }
+        } else {
+          // ── Online mode: normal status ──
+          display.setCursor(0, 32);
+          if (unsentCount == 0)
+            display.print("All Data Synced");
+          else {
+            display.print("Unsent Logs: ");
+            display.print(unsentCount);
+          }
+          display.setCursor(0, 48);
+          if (animFrame) {
+            display.print(">> SCAN NOW >>");
+            display.fillCircle(115, 50, 4, SSD1306_WHITE);
+          } else {
+            display.print("   SCAN NOW   ");
+            display.drawCircle(115, 50, 5, SSD1306_WHITE);
+          }
+        }
       }
     } else {
       display.setCursor(0, 20);
@@ -1152,11 +1449,11 @@ void triggerIndicatorSafe(bool success, String msg) {
   if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
     display.clearDisplay();
     display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-    display.setTextColor(SSD1306_BLACK);
+    display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
     display.setTextSize(1);
     display.setCursor(4, 4);
     display.println(success ? "SUCCESS" : "ALERT");
-    display.setTextColor(SSD1306_WHITE);
+    display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
     display.setCursor(0, 27);
     display.println(msg);
     display.display();
@@ -1168,40 +1465,71 @@ void triggerIndicatorSafe(bool success, String msg) {
 }
 
 void playAudio(String type) {
-  if      (type == "success")    { tone(BUZZER, 2000, 100); delay(120); tone(BUZZER, 3000, 150); }
-  else if (type == "error")      { tone(BUZZER, 150,  400); delay(450); tone(BUZZER, 100,  400); }
-  else if (type == "warning")    { tone(BUZZER, 400,  200); delay(250); tone(BUZZER, 400,  200); }
-  else if (type == "tech_init")  { tone(BUZZER, 1000, 80);  delay(100); tone(BUZZER, 1500, 80); delay(100); tone(BUZZER, 2000, 80); }
-  else if (type == "startup")    { tone(BUZZER, 400,  200); delay(300); tone(BUZZER, 600,  400); delay(500); tone(BUZZER, 1200, 500); }
-  else if (type == "duplicate")  { tone(BUZZER, 300,  150); delay(200); tone(BUZZER, 150,  300); }
-  else if (type == "recording")  { tone(BUZZER, 1500, 60);  delay(80);  tone(BUZZER, 1500,  60); }
+  if (type == "success") {
+    tone(BUZZER, 2000, 100);
+    delay(120);
+    tone(BUZZER, 3000, 150);
+  } else if (type == "error") {
+    tone(BUZZER, 150, 400);
+    delay(450);
+    tone(BUZZER, 100, 400);
+  } else if (type == "warning") {
+    tone(BUZZER, 400, 200);
+    delay(250);
+    tone(BUZZER, 400, 200);
+  } else if (type == "tech_init") {
+    tone(BUZZER, 1000, 80);
+    delay(100);
+    tone(BUZZER, 1500, 80);
+    delay(100);
+    tone(BUZZER, 2000, 80);
+  } else if (type == "startup") {
+    tone(BUZZER, 400, 200);
+    delay(300);
+    tone(BUZZER, 600, 400);
+    delay(500);
+    tone(BUZZER, 1200, 500);
+  } else if (type == "duplicate") {
+    tone(BUZZER, 300, 150);
+    delay(200);
+    tone(BUZZER, 150, 300);
+  } else if (type == "recording") {
+    tone(BUZZER, 1500, 60);
+    delay(80);
+    tone(BUZZER, 1500, 60);
+  }
 }
 
 // ========================= Time Helpers ============================
 String getISOTime() {
-  if (!rtcReady) return "1970-01-01T00:00:00Z";
+  if (!rtcReady)
+    return "1970-01-01T00:00:00Z";
   DateTime now = rtc.now();
   char buf[25];
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
-           now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ", now.year(),
+           now.month(), now.day(), now.hour(), now.minute(), now.second());
   return String(buf);
 }
 
 String getLocalDateStr() {
-  if (!rtcReady) return "1970-01-01";
+  if (!rtcReady)
+    return "1970-01-01";
   DateTime localNow = DateTime(rtc.now().unixtime() + TIMEZONE_OFFSET_SEC);
   char buf[11];
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02d", localNow.year(), localNow.month(), localNow.day());
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02d", localNow.year(),
+           localNow.month(), localNow.day());
   return String(buf);
 }
 
 // ========================= Offline Cache ===========================
 void loadOfflineCache() {
-  if (!sdReady) return;
+  if (!sdReady)
+    return;
   String todayDate = getLocalDateStr();
-  if (todayDate == "1970-01-01") return;
+  if (todayDate == "1970-01-01")
+    return;
   offlineCacheCount = 0;
-  offlineCacheDate  = todayDate;
+  offlineCacheDate = todayDate;
   if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
     if (SD.exists("/today_cache.txt")) {
       File f = SD.open("/today_cache.txt", FILE_READ);
@@ -1212,7 +1540,8 @@ void loadOfflineCache() {
           while (f.available() && offlineCacheCount < MAX_OFFLINE_CACHE) {
             String line = f.readStringUntil('\n');
             line.trim();
-            if (line.length() > 0) offlineCache[offlineCacheCount++] = line;
+            if (line.length() > 0)
+              offlineCache[offlineCacheCount++] = line;
           }
         } else {
           f.close();
@@ -1229,38 +1558,46 @@ void loadOfflineCache() {
 
 bool isDuplicateOfflineScan(int studentId) {
   String todayDate = getLocalDateStr();
-  if (todayDate == "1970-01-01") return false;
+  if (todayDate == "1970-01-01")
+    return false;
   if (todayDate != offlineCacheDate) {
     offlineCacheCount = 0;
-    offlineCacheDate  = todayDate;
+    offlineCacheDate = todayDate;
     if (sdReady && xSemaphoreTake(sdMutex, portMAX_DELAY)) {
-      if (SD.exists("/today_cache.txt")) SD.remove("/today_cache.txt");
+      if (SD.exists("/today_cache.txt"))
+        SD.remove("/today_cache.txt");
       xSemaphoreGive(sdMutex);
     }
   }
   String searchKey = String(studentId);
   for (int i = 0; i < offlineCacheCount; i++) {
-    if (offlineCache[i] == searchKey) return true;
+    if (offlineCache[i] == searchKey)
+      return true;
   }
   return false;
 }
 
 void addToOfflineCache(int studentId) {
   String todayDate = getLocalDateStr();
-  if (todayDate == "1970-01-01") return;
+  if (todayDate == "1970-01-01")
+    return;
   if (todayDate != offlineCacheDate) {
     offlineCacheCount = 0;
-    offlineCacheDate  = todayDate;
+    offlineCacheDate = todayDate;
     if (sdReady && xSemaphoreTake(sdMutex, portMAX_DELAY)) {
-      if (SD.exists("/today_cache.txt")) SD.remove("/today_cache.txt");
+      if (SD.exists("/today_cache.txt"))
+        SD.remove("/today_cache.txt");
       xSemaphoreGive(sdMutex);
     }
   }
   if (offlineCacheCount < MAX_OFFLINE_CACHE) {
     String idStr = String(studentId);
-    bool exists  = false;
+    bool exists = false;
     for (int i = 0; i < offlineCacheCount; i++) {
-      if (offlineCache[i] == idStr) { exists = true; break; }
+      if (offlineCache[i] == idStr) {
+        exists = true;
+        break;
+      }
     }
     if (!exists) {
       offlineCache[offlineCacheCount++] = idStr;
@@ -1268,7 +1605,8 @@ void addToOfflineCache(int studentId) {
         bool fileExists = SD.exists("/today_cache.txt");
         File f = SD.open("/today_cache.txt", FILE_APPEND);
         if (f) {
-          if (!fileExists) f.println(todayDate);
+          if (!fileExists)
+            f.println(todayDate);
           f.println(idStr);
           f.close();
         }
@@ -1279,36 +1617,44 @@ void addToOfflineCache(int studentId) {
 }
 
 // ========================= HTTP Helpers ============================
-String doHttpGet(String endpoint, int timeoutMs, int* outHttpCode) {
+String doHttpGet(String endpoint, int timeoutMs, int *outHttpCode) {
   String payload = "";
-  if (serverBaseURL == "" || WiFi.status() != WL_CONNECTED) return payload;
+  if (serverBaseURL == "" || WiFi.status() != WL_CONNECTED)
+    return payload;
   HTTPClient http;
   http.begin(serverBaseURL + endpoint);
   http.setTimeout(timeoutMs);
   int httpCode = http.GET();
-  if (outHttpCode) *outHttpCode = httpCode;
-  if (httpCode == 200) payload = http.getString();
+  if (outHttpCode)
+    *outHttpCode = httpCode;
+  if (httpCode == 200)
+    payload = http.getString();
   http.end();
   return payload;
 }
 
-String doHttpPost(String endpoint, String jsonPayload, int timeoutMs, int* outHttpCode) {
+String doHttpPost(String endpoint, String jsonPayload, int timeoutMs,
+                  int *outHttpCode) {
   String payload = "";
-  if (serverBaseURL == "" || WiFi.status() != WL_CONNECTED) return payload;
+  if (serverBaseURL == "" || WiFi.status() != WL_CONNECTED)
+    return payload;
   HTTPClient http;
   http.begin(serverBaseURL + endpoint);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(timeoutMs);
   int httpCode = http.POST(jsonPayload);
-  if (outHttpCode) *outHttpCode = httpCode;
-  if (httpCode == 200) payload = http.getString();
+  if (outHttpCode)
+    *outHttpCode = httpCode;
+  if (httpCode == 200)
+    payload = http.getString();
   http.end();
   return payload;
 }
 
 int getWhitelistIndexByRFID(String rfid) {
   for (int i = 0; i < whitelistCount; i++) {
-    if (String(whitelist[i].rfid_uid) == rfid) return i;
+    if (String(whitelist[i].rfid_uid) == rfid)
+      return i;
   }
   return -1;
 }
@@ -1318,15 +1664,20 @@ void processAttendanceData(String sensorType, String identifier) {
   String timestamp = getISOTime();
 
   // Master Card check
-  if (sensorType == "rfid" && cachedMasterRFID != "" && identifier == cachedMasterRFID) {
+  if (sensorType == "rfid" && cachedMasterRFID != "" &&
+      identifier == cachedMasterRFID) {
     cachedPortalOpen = (cachedPortalOpen == 1) ? 0 : 1;
     preferences.putInt("portal", cachedPortalOpen);
-    String actionMsg = (cachedPortalOpen == 1) ? "PORTAL OPENED" : "PORTAL CLOSED";
+    String actionMsg =
+        (cachedPortalOpen == 1) ? "PORTAL OPENED" : "PORTAL CLOSED";
     triggerIndicatorSafe(true, actionMsg);
     playAudio("startup");
     JsonDocument doc;
-    doc["sensor"] = "rfid"; doc["uid"] = identifier; doc["timestamp"] = timestamp;
-    String jsonString; serializeJson(doc, jsonString);
+    doc["sensor"] = "rfid";
+    doc["uid"] = identifier;
+    doc["timestamp"] = timestamp;
+    String jsonString;
+    serializeJson(doc, jsonString);
     if (isOnline && serverBaseURL != "") {
       HTTPClient http;
       http.begin(serverBaseURL + "/api/esp32/attendance");
@@ -1337,7 +1688,10 @@ void processAttendanceData(String sensorType, String identifier) {
       logDataToSD(jsonString);
       if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
         File file = SD.open("/unsent.txt", FILE_APPEND);
-        if (file) { file.println(jsonString); file.close(); }
+        if (file) {
+          file.println(jsonString);
+          file.close();
+        }
         xSemaphoreGive(sdMutex);
       }
       countUnsentRecords();
@@ -1355,11 +1709,14 @@ void processAttendanceData(String sensorType, String identifier) {
   // Resolve student ID from whitelist (RAM first, then SD)
   int resolvedStudentId = -1;
   for (int i = 0; i < whitelistCount; i++) {
-    if (sensorType == "fingerprint" && whitelist[i].fingerprint_id == identifier.toInt()) {
-      resolvedStudentId = whitelist[i].student_id; break;
+    if (sensorType == "fingerprint" &&
+        whitelist[i].fingerprint_id == identifier.toInt()) {
+      resolvedStudentId = whitelist[i].student_id;
+      break;
     }
     if (sensorType == "rfid" && String(whitelist[i].rfid_uid) == identifier) {
-      resolvedStudentId = whitelist[i].student_id; break;
+      resolvedStudentId = whitelist[i].student_id;
+      break;
     }
   }
   if (resolvedStudentId == -1 && sdReady) {
@@ -1367,16 +1724,25 @@ void processAttendanceData(String sensorType, String identifier) {
       File file = SD.open("/whitelist.txt", FILE_READ);
       if (file) {
         while (file.available()) {
-          String line = file.readStringUntil('\n'); line.trim();
-          if (line.length() == 0) continue;
+          String line = file.readStringUntil('\n');
+          line.trim();
+          if (line.length() == 0)
+            continue;
           int c1 = line.indexOf(',');
           int c2 = line.indexOf(',', c1 + 1);
           if (c1 > 0 && c2 > c1) {
-            int    s_id = line.substring(0, c1).toInt();
-            int    f_id = line.substring(c1 + 1, c2).toInt();
-            String r_uid = line.substring(c2 + 1); r_uid.trim();
-            if (sensorType == "fingerprint" && f_id == identifier.toInt()) { resolvedStudentId = s_id; break; }
-            if (sensorType == "rfid"        && r_uid == identifier)        { resolvedStudentId = s_id; break; }
+            int s_id = line.substring(0, c1).toInt();
+            int f_id = line.substring(c1 + 1, c2).toInt();
+            String r_uid = line.substring(c2 + 1);
+            r_uid.trim();
+            if (sensorType == "fingerprint" && f_id == identifier.toInt()) {
+              resolvedStudentId = s_id;
+              break;
+            }
+            if (sensorType == "rfid" && r_uid == identifier) {
+              resolvedStudentId = s_id;
+              break;
+            }
           }
         }
         file.close();
@@ -1389,11 +1755,14 @@ void processAttendanceData(String sensorType, String identifier) {
   if (resolvedStudentId != -1) {
     bool is_blocked = false;
     int idx = getWhitelistIndexByRFID(identifier);
-    if (idx >= 0 && whitelist[idx].is_blacklisted) is_blocked = true;
+    if (idx >= 0 && whitelist[idx].is_blacklisted)
+      is_blocked = true;
     if (!is_blocked && sensorType == "fingerprint") {
       for (int i = 0; i < whitelistCount; i++) {
-        if (whitelist[i].student_id == resolvedStudentId && whitelist[i].is_blacklisted) {
-          is_blocked = true; break;
+        if (whitelist[i].student_id == resolvedStudentId &&
+            whitelist[i].is_blacklisted) {
+          is_blocked = true;
+          break;
         }
       }
     }
@@ -1415,27 +1784,32 @@ void processAttendanceData(String sensorType, String identifier) {
   if (isOnline && serverBaseURL != "") {
     JsonDocument doc;
     doc["sensor"] = sensorType;
-    if (sensorType == "fingerprint") doc["id"] = identifier.toInt();
-    else doc["uid"] = identifier;
+    if (sensorType == "fingerprint")
+      doc["id"] = identifier.toInt();
+    else
+      doc["uid"] = identifier;
     doc["timestamp"] = timestamp;
     if (sensorType == "rfid") {
       doc["ai_dwell"] = lastDwellTime;
       doc["ai_inter"] = lastInterScanTime;
       doc["ai_prediction"] = "NORMAL";
     }
-    String jsonString; serializeJson(doc, jsonString);
+    String jsonString;
+    serializeJson(doc, jsonString);
 
     int httpCode = 0;
-    String responsePayload = doHttpPost("/api/esp32/attendance", jsonString, 4000, &httpCode);
+    String responsePayload =
+        doHttpPost("/api/esp32/attendance", jsonString, 4000, &httpCode);
     if (httpCode == 200) {
       JsonDocument resDoc;
       deserializeJson(resDoc, responsePayload);
-      bool   ok  = resDoc["success"].as<bool>();
+      bool ok = resDoc["success"].as<bool>();
       String msg = resDoc[ok ? "name" : "message"].as<String>();
       if (ok) {
         triggerIndicatorSafe(true, "Welcome!\n" + msg);
         logDataToSD(jsonString);
-        if (resolvedStudentId != -1) addToOfflineCache(resolvedStudentId);
+        if (resolvedStudentId != -1)
+          addToOfflineCache(resolvedStudentId);
       } else {
         if (msg == "Already Scanned Today") {
           playAudio("duplicate");
@@ -1465,72 +1839,95 @@ void processAttendanceData(String sensorType, String identifier) {
     }
   }
 
-  offline_cache:
-  {
-    if (resolvedStudentId != -1) addToOfflineCache(resolvedStudentId);
-    JsonDocument doc;
-    doc["sensor"] = sensorType;
-    if (sensorType == "fingerprint") doc["id"] = identifier.toInt();
-    else doc["uid"] = identifier;
-    doc["timestamp"] = timestamp;
-    String jsonString; serializeJson(doc, jsonString);
-    logDataToSD(jsonString);
-    if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
-      File file = SD.open("/unsent.txt", FILE_APPEND);
-      if (file) { file.println(jsonString); file.close(); }
-      xSemaphoreGive(sdMutex);
+offline_cache: {
+  if (resolvedStudentId != -1)
+    addToOfflineCache(resolvedStudentId);
+  JsonDocument doc;
+  doc["sensor"] = sensorType;
+  if (sensorType == "fingerprint")
+    doc["id"] = identifier.toInt();
+  else
+    doc["uid"] = identifier;
+  doc["timestamp"] = timestamp;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  logDataToSD(jsonString);
+  if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
+    File file = SD.open("/unsent.txt", FILE_APPEND);
+    if (file) {
+      file.println(jsonString);
+      file.close();
     }
-    countUnsentRecords();
-    triggerIndicatorSafe(true, "Saved Offline\nWill Sync Soon");
+    xSemaphoreGive(sdMutex);
   }
+  countUnsentRecords();
+  triggerIndicatorSafe(true, "Saved Offline\nWill Sync Soon");
+}
 }
 
 void logDataToSD(String jsonString) {
-  if (!sdReady) return;
+  if (!sdReady)
+    return;
   if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
     File file = SD.open("/master_log.txt", FILE_APPEND);
-    if (file) { file.println(jsonString); file.close(); }
+    if (file) {
+      file.println(jsonString);
+      file.close();
+    }
     xSemaphoreGive(sdMutex);
   }
 }
 
 void countUnsentRecords() {
-  if (!sdReady) return;
+  if (!sdReady)
+    return;
   int count = 0;
   File file = SD.open("/unsent.txt", FILE_READ);
-  if (file) { while (file.available()) { if (file.read() == '\n') count++; } file.close(); }
+  if (file) {
+    while (file.available()) {
+      if (file.read() == '\n')
+        count++;
+    }
+    file.close();
+  }
   unsentCount = count;
 }
 
 // ========================= handleAttendance ========================
 // Modified flow:
-// RFID detected → TinyML check → if ok → prompt voice (9 s) → upload → server decides proxy
+// RFID detected → TinyML check → if ok → prompt voice (9 s) → upload → server
+// decides proxy
 //              → if proxy → fingerprint audit
 //              → if ok    → processAttendanceData
 void handleAttendance() {
   // ── Security Audit Active ──
   if (pendingAudit) {
-    int studentIndex  = getWhitelistIndexByRFID(auditExpectedRFID);
-    int expectedFinger = (studentIndex >= 0) ? whitelist[studentIndex].fingerprint_id : -1;
+    int studentIndex = getWhitelistIndexByRFID(auditExpectedRFID);
+    int expectedFinger =
+        (studentIndex >= 0) ? whitelist[studentIndex].fingerprint_id : -1;
 
     // Timeout → blacklist
     if (millis() - auditStartTime > 15000) {
       pendingAudit = false;
       noTone(BUZZER);
-      if (studentIndex >= 0) whitelist[studentIndex].is_blacklisted = true;
+      if (studentIndex >= 0)
+        whitelist[studentIndex].is_blacklisted = true;
 
       JsonDocument doc;
       doc["uid"] = auditExpectedRFID;
-      doc["ai_dwell"] = lastDwellTime; doc["ai_inter"] = lastInterScanTime;
+      doc["ai_dwell"] = lastDwellTime;
+      doc["ai_inter"] = lastInterScanTime;
       doc["ai_prediction"] = "PROXY";
-      String jsonString; serializeJson(doc, jsonString);
+      String jsonString;
+      serializeJson(doc, jsonString);
       if (isOnline && serverBaseURL != "") {
         doHttpPost("/api/esp32/proxy_alert", jsonString, 4000);
         // Mark voice match as blacklisted
         JsonDocument resolveDoc;
         resolveDoc["rfid_uid"] = auditExpectedRFID;
-        resolveDoc["result"]   = "BLACKLISTED";
-        String resolveJson; serializeJson(resolveDoc, resolveJson);
+        resolveDoc["result"] = "BLACKLISTED";
+        String resolveJson;
+        serializeJson(resolveDoc, resolveJson);
         doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
       } else {
         doc["sensor"] = "proxy_alert";
@@ -1542,27 +1939,35 @@ void handleAttendance() {
     }
 
     // Check Master Card
-    uint8_t u[7]; uint8_t uLen;
+    uint8_t u[7];
+    uint8_t uLen;
     if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, u, &uLen, 50)) {
       String uStr = "";
       for (uint8_t i = 0; i < uLen; i++) {
-        if (u[i] < 0x10) uStr += "0";
+        if (u[i] < 0x10)
+          uStr += "0";
         uStr += String(u[i], HEX);
       }
       uStr.toUpperCase();
       if (cachedMasterRFID != "" && uStr == cachedMasterRFID) {
-        pendingAudit = false; noTone(BUZZER);
+        pendingAudit = false;
+        noTone(BUZZER);
         if (auditExpectedRFID != "SIMULATED") {
           // Mark resolved
           JsonDocument resolveDoc;
           resolveDoc["rfid_uid"] = auditExpectedRFID;
-          resolveDoc["result"]   = "FINGERPRINT_OK";
-          String resolveJson; serializeJson(resolveDoc, resolveJson);
-          if (isOnline && serverBaseURL != "") doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
+          resolveDoc["result"] = "FINGERPRINT_OK";
+          String resolveJson;
+          serializeJson(resolveDoc, resolveJson);
+          if (isOnline && serverBaseURL != "")
+            doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
           processAttendanceData("rfid", auditExpectedRFID);
         } else if (isOnline && serverBaseURL != "") {
-          JsonDocument doc; doc["uid"] = "SIMULATED"; doc["method"] = "OVERRIDE";
-          String js; serializeJson(doc, js);
+          JsonDocument doc;
+          doc["uid"] = "SIMULATED";
+          doc["method"] = "OVERRIDE";
+          String js;
+          serializeJson(doc, js);
           doHttpPost("/api/esp32/audit_cleared", js, 2000);
         }
         triggerIndicatorSafe(true, "AUDIT CLEARED\nMaster Card OK");
@@ -1574,42 +1979,57 @@ void handleAttendance() {
     }
 
     // Check fingerprint
-    if (finger.getImage() == FINGERPRINT_OK && finger.image2Tz(1) == FINGERPRINT_OK) {
+    if (finger.getImage() == FINGERPRINT_OK &&
+        finger.image2Tz(1) == FINGERPRINT_OK) {
       if (finger.fingerSearch() == FINGERPRINT_OK) {
-        bool isMaster  = (finger.fingerID == masterFingerSlot);
-        bool isStudent = (expectedFinger > 0 && finger.fingerID == expectedFinger);
+        bool isMaster = (finger.fingerID == masterFingerSlot);
+        bool isStudent =
+            (expectedFinger > 0 && finger.fingerID == expectedFinger);
         if (isMaster || isStudent) {
-          pendingAudit = false; noTone(BUZZER);
-          String clearMsg = isMaster ? "AUDIT CLEARED\nMaster Finger" : "AUDIT CLEARED\nIdentity OK";
+          pendingAudit = false;
+          noTone(BUZZER);
+          String clearMsg = isMaster ? "AUDIT CLEARED\nMaster Finger"
+                                     : "AUDIT CLEARED\nIdentity OK";
           // Resolve voice match
           if (auditExpectedRFID != "SIMULATED") {
             JsonDocument resolveDoc;
             resolveDoc["rfid_uid"] = auditExpectedRFID;
-            resolveDoc["result"]   = "FINGERPRINT_OK";
-            String resolveJson; serializeJson(resolveDoc, resolveJson);
-            if (isOnline && serverBaseURL != "") doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
-            if (isStudent) processAttendanceData("rfid", auditExpectedRFID);
+            resolveDoc["result"] = "FINGERPRINT_OK";
+            String resolveJson;
+            serializeJson(resolveDoc, resolveJson);
+            if (isOnline && serverBaseURL != "")
+              doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
+            if (isStudent)
+              processAttendanceData("rfid", auditExpectedRFID);
           } else if (isOnline && serverBaseURL != "") {
-            JsonDocument doc; doc["uid"] = "SIMULATED"; doc["method"] = "OVERRIDE";
-            String js; serializeJson(doc, js);
+            JsonDocument doc;
+            doc["uid"] = "SIMULATED";
+            doc["method"] = "OVERRIDE";
+            String js;
+            serializeJson(doc, js);
             doHttpPost("/api/esp32/audit_cleared", js, 2000);
           }
           triggerIndicatorSafe(true, clearMsg);
         } else {
           // Wrong finger
-          pendingAudit = false; noTone(BUZZER);
-          if (studentIndex >= 0) whitelist[studentIndex].is_blacklisted = true;
+          pendingAudit = false;
+          noTone(BUZZER);
+          if (studentIndex >= 0)
+            whitelist[studentIndex].is_blacklisted = true;
           JsonDocument doc;
           doc["uid"] = auditExpectedRFID;
-          doc["ai_dwell"] = lastDwellTime; doc["ai_inter"] = lastInterScanTime;
+          doc["ai_dwell"] = lastDwellTime;
+          doc["ai_inter"] = lastInterScanTime;
           doc["ai_prediction"] = "PROXY";
-          String js; serializeJson(doc, js);
+          String js;
+          serializeJson(doc, js);
           if (isOnline && serverBaseURL != "") {
             doHttpPost("/api/esp32/proxy_alert", js, 4000);
             JsonDocument resolveDoc;
             resolveDoc["rfid_uid"] = auditExpectedRFID;
-            resolveDoc["result"]   = "BLACKLISTED";
-            String resolveJson; serializeJson(resolveDoc, resolveJson);
+            resolveDoc["result"] = "BLACKLISTED";
+            String resolveJson;
+            serializeJson(resolveDoc, resolveJson);
             doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
           } else {
             doc["sensor"] = "proxy_alert";
@@ -1625,7 +2045,26 @@ void handleAttendance() {
     return;
   }
 
-  // ── Normal RFID Scan ──
+  // ── Fingerprint Primary Check ──
+  uint8_t p = finger.getImage();
+  if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint] getImage error: 0x%02X\n", p);
+  }
+  if (p == FINGERPRINT_OK) {
+    uint8_t tz = finger.image2Tz();
+    if (tz != FINGERPRINT_OK) {
+        Serial.printf("[Fingerprint] image2Tz error: 0x%02X\n", tz);
+    }
+    if (tz == FINGERPRINT_OK) {
+    if (finger.fingerSearch() == FINGERPRINT_OK) {
+      processAttendanceData("fingerprint", String(finger.fingerID));
+    } else {
+      triggerIndicatorSafe(false, "Unknown Finger\nTry Again");
+    }
+    }
+  }
+
+  // ── RFID Fallback Check ──
   uint8_t uid[7] = {0};
   uint8_t uidLength;
   unsigned long scanStartTime = millis();
@@ -1633,7 +2072,8 @@ void handleAttendance() {
   if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 50)) {
     // Measure dwell time
     unsigned long dwellTime = 0;
-    while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 50)) {
+    while (
+        nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 50)) {
       dwellTime = millis() - scanStartTime;
     }
     unsigned long interScanTime = millis() - lastRFIDScanTime;
@@ -1641,49 +2081,88 @@ void handleAttendance() {
 
     String uidString = "";
     for (uint8_t i = 0; i < uidLength; i++) {
-      if (uid[i] < 0x10) uidString += "0";
+      if (uid[i] < 0x10)
+        uidString += "0";
       uidString += String(uid[i], HEX);
     }
     uidString.toUpperCase();
-    lastDwellTime    = (float)dwellTime;
+    lastDwellTime = (float)dwellTime;
     lastInterScanTime = (float)interScanTime;
+
+    // ── Offline Mode Gate ─────────────────────────────────────────────
+    // In offline mode, voice proxy detection cannot run (server needed).
+    // RFID attendance is therefore BLOCKED to prevent unverified proxies.
+    // EXCEPTION: Master card always works offline for portal toggle.
+    // Fingerprint attendance is handled at the bottom of handleAttendance().
+    if (!isOnline) {
+      if (cachedMasterRFID != "" && uidString == cachedMasterRFID) {
+        // Master card: allow portal toggle even offline
+        processAttendanceData("rfid", uidString);
+      } else {
+        // Student RFID: reject — proxy check not possible without server
+        playAudio("error");
+        triggerIndicatorSafe(false, "Offline Mode:\nFingerprint Only");
+      }
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────
 
     // TinyML behavioural proxy check (dwell/inter-scan)
     int isProxy = ProxyModel::predict((float)dwellTime, (float)interScanTime);
     if (isProxy == 1) {
       // Behavioural proxy — trigger audit immediately (no voice needed)
-      pendingAudit      = true;
+      pendingAudit = true;
       auditExpectedRFID = uidString;
-      auditStartTime    = millis();
+      auditStartTime = millis();
       playAudio("error");
       int studentIndex = getWhitelistIndexByRFID(uidString);
-      String sName = (studentIndex >= 0) ? String(whitelist[studentIndex].name) : "Unknown";
+      String sName = (studentIndex >= 0) ? String(whitelist[studentIndex].name)
+                                         : "Unknown";
       if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
         display.clearDisplay();
         display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-        display.setTextColor(SSD1306_BLACK);
-        display.setCursor(4, 4); display.print("SECURITY AUDIT");
-        display.setTextColor(SSD1306_WHITE);
-        display.setCursor(0, 24); display.print("Proxy Suspected!");
-        display.setCursor(0, 36); display.print(sName);
-        display.setCursor(0, 48); display.print("Validate Finger!");
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(4, 4);
+        display.print("SECURITY AUDIT");
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        display.setCursor(0, 24);
+        display.print("Proxy Suspected!");
+        display.setCursor(0, 36);
+        display.print(sName);
+        display.setCursor(0, 48);
+        display.print("Validate Finger!");
         display.display();
         xSemaphoreGive(displayMutex);
       }
       return;
     }
 
+    // ── Master Card: skip voice check ──
+    // If the scanned card is the master card, go straight to portal toggle.
+    // No voice verification needed for admin.
+    if (cachedMasterRFID != "" && uidString == cachedMasterRFID) {
+      processAttendanceData("rfid", uidString);
+      return;
+    }
+
+    int voiceAttempts = 0; // Max 1 retry
+
+  voice_retry:
     // ── Voice Recording Step ──
     // Show prompt on OLED and kick off recording on Core 0
     if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
       display.clearDisplay();
       display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-      display.setTextColor(SSD1306_BLACK);
-      display.setCursor(4, 4); display.print("  VOICE CHECK  ");
-      display.setTextColor(SSD1306_WHITE);
-      display.setCursor(0, 22); display.print("Please SAY something");
-      display.setCursor(0, 34); display.print("Recording 9 seconds");
-      display.setCursor(14, 48); display.print("  [===      ]");
+      display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+      display.setCursor(4, 4);
+      display.print("  VOICE CHECK  ");
+      display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+      display.setCursor(0, 22);
+      display.print("Say: Present Sir");
+      display.setCursor(0, 34);
+      display.print("Recording 5 seconds");
+      display.setCursor(14, 48);
+      display.print("  [===      ]");
       display.display();
       xSemaphoreGive(displayMutex);
     }
@@ -1692,7 +2171,7 @@ void handleAttendance() {
     playAudio("recording");
 
     // Copy RFID to shared buffer for voiceTask context
-    strncpy((char*)voiceRfidUid, uidString.c_str(), sizeof(voiceRfidUid) - 1);
+    strncpy((char *)voiceRfidUid, uidString.c_str(), sizeof(voiceRfidUid) - 1);
 
     // Signal voiceTask (Core 0) to start recording
     xEventGroupClearBits(voiceEventGroup, VOICE_DONE_BIT | VOICE_ABORT_BIT);
@@ -1715,13 +2194,16 @@ void handleAttendance() {
         int bars = (elapsed * 10) / VOICE_RECORD_SECS;
         bars = bars > 10 ? 10 : bars;
         String bar = "[";
-        for (int b = 0; b < bars; b++) bar += "=";
-        for (int b = bars; b < 10; b++) bar += " ";
+        for (int b = 0; b < bars; b++)
+          bar += "=";
+        for (int b = bars; b < 10; b++)
+          bar += " ";
         bar += "]";
         if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(30))) {
           display.fillRect(0, 44, 128, 20, SSD1306_BLACK);
           display.setCursor(0, 48);
-          char cBuf[24]; snprintf(cBuf, sizeof(cBuf), "%ds %s", elapsed, bar.c_str());
+          char cBuf[24];
+          snprintf(cBuf, sizeof(cBuf), "%ds %s", elapsed, bar.c_str());
           display.print(cBuf);
           display.display();
           xSemaphoreGive(displayMutex);
@@ -1731,38 +2213,104 @@ void handleAttendance() {
       if (millis() - recordStart > 12000) {
         xEventGroupSetBits(voiceEventGroup, VOICE_ABORT_BIT);
         // Wait for voiceTask to acknowledge abort
-        xEventGroupWaitBits(voiceEventGroup, VOICE_DONE_BIT, pdTRUE, pdTRUE, pdMS_TO_TICKS(2000));
+        xEventGroupWaitBits(voiceEventGroup, VOICE_DONE_BIT, pdTRUE, pdTRUE,
+                            pdMS_TO_TICKS(2000));
         break;
       }
       vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 
     // ── Voice Upload & Server Decision ──
-    bool   voiceProxy       = false;
+    bool voiceProxy = false;
+    bool voiceWrongPhrase = false;
     String voiceMatchedName = "";
-    float  voiceScore       = 0.0f;
+    float voiceScore = 0.0f;
 
     if (voiceFileSaved && isOnline && serverBaseURL != "") {
       if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
         display.clearDisplay();
         display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-        display.setTextColor(SSD1306_BLACK);
-        display.setCursor(8, 4); display.print(" Analyzing Voice ");
-        display.setTextColor(SSD1306_WHITE);
-        display.setCursor(0, 26); display.print("Uploading & comparing");
-        display.setCursor(0, 40); display.print("Please wait...");
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(8, 4);
+        display.print(" Analyzing Voice ");
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        display.setCursor(0, 26);
+        display.print("Uploading & comparing");
+        display.setCursor(0, 40);
+        display.print("Please wait...");
         display.display();
         xSemaphoreGive(displayMutex);
       }
 
-      uploadVoiceAndGetDecision(uidString.c_str(), voiceProxy, voiceMatchedName, voiceScore);
+      uploadVoiceAndGetDecision(uidString.c_str(), voiceProxy, voiceWrongPhrase,
+                                voiceMatchedName, voiceScore);
+    }
+
+    if (voiceWrongPhrase) {
+      voiceAttempts++;
+      playAudio("error");
+      if (voiceAttempts >= 2) {
+        // 2nd failure — stop asking, prompt fingerprint instead
+        if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
+          display.clearDisplay();
+          display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
+          display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+          display.setCursor(8, 4);
+          display.print("  VOICE FAILED  ");
+          display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+          display.setCursor(0, 22);
+          display.print("Please use your");
+          display.setCursor(0, 34);
+          display.print(" FINGERPRINT now");
+          display.setCursor(0, 48);
+          display.print("Place finger...");
+          display.display();
+          xSemaphoreGive(displayMutex);
+        }
+        // Wait 4 s for fingerprint scan
+        delay(500);
+        unsigned long fpWait = millis();
+        while (millis() - fpWait < 4000) {
+          if (finger.getImage() == FINGERPRINT_OK &&
+              finger.image2Tz() == FINGERPRINT_OK) {
+            if (finger.fingerSearch() == FINGERPRINT_OK) {
+              processAttendanceData("fingerprint", String(finger.fingerID));
+            } else {
+              triggerIndicatorSafe(false, "Unknown Finger\nTry Again");
+            }
+            return;
+          }
+          delay(50);
+        }
+        triggerIndicatorSafe(false, "Voice+Finger\nFailed. Retry.");
+        return;
+      }
+      // First wrong attempt — show warning and retry once more
+      if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
+        display.clearDisplay();
+        display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(8, 4);
+        display.print("  WRONG WORD!  ");
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        display.setCursor(0, 22);
+        display.print("You did not say:");
+        display.setCursor(0, 34);
+        display.print(" 'Present Sir'");
+        display.setCursor(0, 48);
+        display.print("1 chance left!");
+        display.display();
+        xSemaphoreGive(displayMutex);
+      }
+      delay(2500);
+      goto voice_retry;
     }
 
     if (voiceProxy) {
       // Voice-based proxy detected
-      pendingAudit      = true;
+      pendingAudit = true;
       auditExpectedRFID = uidString;
-      auditStartTime    = millis();
+      auditStartTime = millis();
       playAudio("error");
 
       char scoreStr[12];
@@ -1771,13 +2319,18 @@ void handleAttendance() {
       if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
         display.clearDisplay();
         display.fillRect(0, 0, 128, 16, SSD1306_WHITE);
-        display.setTextColor(SSD1306_BLACK);
-        display.setCursor(4, 4); display.print("VOICE PROXY ALERT");
-        display.setTextColor(SSD1306_WHITE);
-        display.setCursor(0, 20); display.print("Match: ");
+        display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+        display.setCursor(4, 4);
+        display.print("VOICE PROXY ALERT");
+        display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+        display.setCursor(0, 20);
+        display.print("Match: ");
         display.print(voiceMatchedName.substring(0, 12));
-        display.setCursor(0, 32); display.print("Score: "); display.print(scoreStr);
-        display.setCursor(0, 44); display.print("Validate Fingerprint");
+        display.setCursor(0, 32);
+        display.print("Score: ");
+        display.print(scoreStr);
+        display.setCursor(0, 44);
+        display.print("Validate Fingerprint");
         display.display();
         xSemaphoreGive(displayMutex);
       }
@@ -1788,31 +2341,26 @@ void handleAttendance() {
     processAttendanceData("rfid", uidString);
     return;
   }
-
-  // ── Fingerprint fallback ──
-  if (finger.getImage() == FINGERPRINT_OK && finger.image2Tz() == FINGERPRINT_OK) {
-    if (finger.fingerSearch() == FINGERPRINT_OK) {
-      processAttendanceData("fingerprint", String(finger.fingerID));
-    } else {
-      triggerIndicatorSafe(false, "Unknown Finger\nTry Again");
-    }
-  }
 }
 
 // ========================= Enrollment Handlers =====================
 void handleCaptureRfid() {
   triggerIndicatorSafe(true, "Tap Master Card\non Scanner...");
-  uint8_t uid[7]; uint8_t uidLength;
+  uint8_t uid[7];
+  uint8_t uidLength;
   if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 5000)) {
     String uidString = "";
     for (uint8_t i = 0; i < uidLength; i++) {
-      if (uid[i] < 0x10) uidString += "0";
+      if (uid[i] < 0x10)
+        uidString += "0";
       uidString += String(uid[i], HEX);
     }
     uidString.toUpperCase();
     JsonDocument doc;
-    doc["sensor"] = "rfid"; doc["uid"] = uidString;
-    String jsonString; serializeJson(doc, jsonString);
+    doc["sensor"] = "rfid";
+    doc["uid"] = uidString;
+    String jsonString;
+    serializeJson(doc, jsonString);
     if (isOnline && serverBaseURL != "") {
       doHttpPost("/api/esp32/attendance", jsonString);
       triggerIndicatorSafe(true, "Tag Read\nSuccessfully!");
@@ -1823,24 +2371,32 @@ void handleCaptureRfid() {
 
 void handleRFIDEnrollment() {
   triggerIndicatorSafe(true, "Awaiting NEW\nRFID Tag...");
-  uint8_t uid[7]; uint8_t uidLength;
+  uint8_t uid[7];
+  uint8_t uidLength;
   if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 8000)) {
     String uidString = "";
     for (uint8_t i = 0; i < uidLength; i++) {
-      if (uid[i] < 0x10) uidString += "0";
+      if (uid[i] < 0x10)
+        uidString += "0";
       uidString += String(uid[i], HEX);
     }
     uidString.toUpperCase();
     JsonDocument doc;
-    doc["sensor"] = "rfid"; doc["uid"] = uidString;
-    String jsonString; serializeJson(doc, jsonString);
+    doc["sensor"] = "rfid";
+    doc["uid"] = uidString;
+    String jsonString;
+    serializeJson(doc, jsonString);
     if (isOnline && serverBaseURL != "") {
       int httpCode = 0;
-      String responsePayload = doHttpPost("/api/esp32/enroll_success", jsonString, 4000, &httpCode);
+      String responsePayload =
+          doHttpPost("/api/esp32/enroll_success", jsonString, 4000, &httpCode);
       if (httpCode == 200) {
-        JsonDocument res; deserializeJson(res, responsePayload);
-        if (res["success"]) triggerIndicatorSafe(true, "Tag Linked!");
-        else                triggerIndicatorSafe(false, res["message"].as<String>());
+        JsonDocument res;
+        deserializeJson(res, responsePayload);
+        if (res["success"])
+          triggerIndicatorSafe(true, "Tag Linked!");
+        else
+          triggerIndicatorSafe(false, res["message"].as<String>());
       }
     }
   } else {
@@ -1852,7 +2408,8 @@ void handleRFIDEnrollment() {
 void handleMasterFingerEnrollment() {
   finger.getTemplateCount();
   int slot = finger.templateCount + 1;
-  if (slot > 127) slot = 127;
+  if (slot > 127)
+    slot = 127;
 
   triggerIndicatorSafe(true, "Demo Finger\nEnrollment...");
   vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -1860,39 +2417,73 @@ void handleMasterFingerEnrollment() {
   triggerIndicatorSafe(true, "Place Finger\nOn Sensor (1/2)");
   int p = -1;
   while (p != FINGERPRINT_OK) {
-    if (currentMode != "enroll_master_finger") return;
+    if (currentMode != "enroll_master_finger")
+      return;
     p = finger.getImage();
+    if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint Enroll] error: 0x%02X\n", p);
+    }
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
-  if (finger.image2Tz(1) != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Scan failed\nTry Again"); currentMode = "attendance"; return; }
+  if (finger.image2Tz(1) != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Scan failed\nTry Again");
+    currentMode = "attendance";
+    return;
+  }
 
   playAudio("tech_init");
   triggerIndicatorSafe(true, "Good! Now\nLIFT FINGER!");
   p = 0;
   while (p != FINGERPRINT_NOFINGER) {
-    if (currentMode != "enroll_master_finger") return;
-    p = finger.getImage(); vTaskDelay(50 / portTICK_PERIOD_MS);
+    if (currentMode != "enroll_master_finger")
+      return;
+    p = finger.getImage();
+    if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint Enroll] error: 0x%02X\n", p);
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 
   triggerIndicatorSafe(true, "Place SAME\nFinger Again (2/2)");
   p = -1;
   while (p != FINGERPRINT_OK) {
-    if (currentMode != "enroll_master_finger") return;
-    p = finger.getImage(); vTaskDelay(50 / portTICK_PERIOD_MS);
+    if (currentMode != "enroll_master_finger")
+      return;
+    p = finger.getImage();
+    if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint Enroll] error: 0x%02X\n", p);
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
-  if (finger.image2Tz(2) != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Scan failed\nTry Again"); currentMode = "attendance"; return; }
+  if (finger.image2Tz(2) != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Scan failed\nTry Again");
+    currentMode = "attendance";
+    return;
+  }
 
-  if (finger.createModel() != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Mismatch!\nPress Harder"); currentMode = "attendance"; return; }
-  if (finger.storeModel(slot) != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Store Failed!\nSensor Full?"); currentMode = "attendance"; return; }
+  if (finger.createModel() != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Mismatch!\nPress Harder");
+    currentMode = "attendance";
+    return;
+  }
+  if (finger.storeModel(slot) != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Store Failed!\nSensor Full?");
+    currentMode = "attendance";
+    return;
+  }
 
   preferences.putInt("mfSlot", slot);
   masterFingerSlot = slot;
   playAudio("success");
   triggerIndicatorSafe(true, "Demo Finger OK!\nSlot: " + String(slot));
 
-  JsonDocument doc; doc["sensor"] = "fingerprint"; doc["id"] = slot;
-  String jsonString; serializeJson(doc, jsonString);
-  if (isOnline && serverBaseURL != "") doHttpPost("/api/esp32/enroll_success", jsonString, 4000);
+  JsonDocument doc;
+  doc["sensor"] = "fingerprint";
+  doc["id"] = slot;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  if (isOnline && serverBaseURL != "")
+    doHttpPost("/api/esp32/enroll_success", jsonString, 4000);
 
   vTaskDelay(2000 / portTICK_PERIOD_MS);
   currentMode = "attendance";
@@ -1902,42 +2493,79 @@ void handleFingerprintEnrollment() {
   triggerIndicatorSafe(true, "Please Press\nFinger (1/2)");
   int p = -1;
   while (p != FINGERPRINT_OK) {
-    if (currentMode != "enroll_fingerprint") return;
-    p = finger.getImage(); vTaskDelay(50 / portTICK_PERIOD_MS);
+    if (currentMode != "enroll_fingerprint")
+      return;
+    p = finger.getImage();
+    if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint Enroll] error: 0x%02X\n", p);
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
-  if (finger.image2Tz(1) != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Scan Blocked\nTry Again"); currentMode = "attendance"; return; }
+  if (finger.image2Tz(1) != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Scan Blocked\nTry Again");
+    currentMode = "attendance";
+    return;
+  }
 
   playAudio("tech_init");
   triggerIndicatorSafe(true, "Success. Now\nLIFT FINGER!");
   p = 0;
   while (p != FINGERPRINT_NOFINGER) {
-    if (currentMode != "enroll_fingerprint") return;
-    p = finger.getImage(); vTaskDelay(50 / portTICK_PERIOD_MS);
+    if (currentMode != "enroll_fingerprint")
+      return;
+    p = finger.getImage();
+    if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint Enroll] error: 0x%02X\n", p);
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 
   triggerIndicatorSafe(true, "Press SAME\nFinger (2/2)");
   p = -1;
   while (p != FINGERPRINT_OK) {
-    if (currentMode != "enroll_fingerprint") return;
-    p = finger.getImage(); vTaskDelay(50 / portTICK_PERIOD_MS);
+    if (currentMode != "enroll_fingerprint")
+      return;
+    p = finger.getImage();
+    if (p != FINGERPRINT_OK && p != FINGERPRINT_NOFINGER) {
+      Serial.printf("[Fingerprint Enroll] error: 0x%02X\n", p);
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
-  if (finger.image2Tz(2) != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Scan Blocked\nTry Again"); currentMode = "attendance"; return; }
-  if (finger.createModel() != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Mismatch!\nPress Harder"); currentMode = "attendance"; return; }
+  if (finger.image2Tz(2) != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Scan Blocked\nTry Again");
+    currentMode = "attendance";
+    return;
+  }
+  if (finger.createModel() != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Mismatch!\nPress Harder");
+    currentMode = "attendance";
+    return;
+  }
 
   int slot = (targetID > 0) ? targetID : 1;
-  if (finger.storeModel(slot) != FINGERPRINT_OK) { triggerIndicatorSafe(false, "Storage ERR\nSensor Full?"); currentMode = "attendance"; return; }
+  if (finger.storeModel(slot) != FINGERPRINT_OK) {
+    triggerIndicatorSafe(false, "Storage ERR\nSensor Full?");
+    currentMode = "attendance";
+    return;
+  }
 
-  JsonDocument doc; doc["sensor"] = "fingerprint"; doc["id"] = slot;
-  String jsonString; serializeJson(doc, jsonString);
+  JsonDocument doc;
+  doc["sensor"] = "fingerprint";
+  doc["id"] = slot;
+  String jsonString;
+  serializeJson(doc, jsonString);
   if (isOnline && serverBaseURL != "") {
     HTTPClient http;
     http.begin(serverBaseURL + "/api/esp32/enroll_success");
     http.addHeader("Content-Type", "application/json");
     int httpCode = http.POST(jsonString);
     if (httpCode == 200) {
-      JsonDocument res; deserializeJson(res, http.getString());
-      if (res["success"]) triggerIndicatorSafe(true, "Finger Linked!");
-      else                triggerIndicatorSafe(false, res["message"].as<String>());
+      JsonDocument res;
+      deserializeJson(res, http.getString());
+      if (res["success"])
+        triggerIndicatorSafe(true, "Finger Linked!");
+      else
+        triggerIndicatorSafe(false, res["message"].as<String>());
     }
     http.end();
   }
@@ -1948,8 +2576,87 @@ void handleDeleteAll() {
   triggerIndicatorSafe(true, "WIPING MEMORY\nPlease Wait.");
   finger.emptyDatabase();
   triggerIndicatorSafe(true, "Memory Cleared.");
-  JsonDocument doc; doc["sensor"] = "delete_all_confirm"; doc["id"] = 0;
-  String jsonString; serializeJson(doc, jsonString);
-  if (isOnline && serverBaseURL != "") doHttpPost("/api/esp32/enroll_success", jsonString);
+  JsonDocument doc;
+  doc["sensor"] = "delete_all_confirm";
+  doc["id"] = 0;
+  String jsonString;
+  serializeJson(doc, jsonString);
+  if (isOnline && serverBaseURL != "")
+    doHttpPost("/api/esp32/enroll_success", jsonString);
   currentMode = "attendance";
 }
+
+// =====================================================================
+// Test Recording — triggered by dashboard Voice Testing Lab
+// Records 5 seconds from INMP441 mic, uploads to /api/esp32/voice_test_submit
+// =====================================================================
+void handleTestRecord() {
+  // Immediately switch back so the mode doesn't re-trigger on next loop
+  currentMode = "attendance";
+
+  if (!isOnline || serverBaseURL == "") {
+    triggerIndicatorSafe(true, "Test Rec FAIL\nNo Server");
+    return;
+  }
+
+  // Show recording indicator on OLED
+  if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println("[TEST RECORD]");
+    display.println("Recording 9s...");
+    display.println("ESP32 Mic");
+    display.display();
+    xSemaphoreGive(displayMutex);
+  }
+  tone(BUZZER, 880, 150);
+
+  // Trigger voice recording task (reuse existing mechanism)
+  xEventGroupClearBits(voiceEventGroup, VOICE_DONE_BIT | VOICE_ABORT_BIT);
+  xEventGroupSetBits(voiceEventGroup, VOICE_REQUEST_BIT);
+
+  // Wait for recording to finish (up to 12 s)
+  unsigned long waitStart = millis();
+  while (millis() - waitStart < 12000) {
+    EventBits_t bits = xEventGroupGetBits(voiceEventGroup);
+    if (bits & VOICE_DONE_BIT) {
+      xEventGroupClearBits(voiceEventGroup, VOICE_DONE_BIT);
+      break;
+    }
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+
+  if (!voiceFileSaved) {
+    triggerIndicatorSafe(true, "Test Rec FAIL\nNo Audio");
+    return;
+  }
+
+  // Give SD SPI bus 200ms to fully settle after the recording write
+  // before doHttpPostMultipart tries to open and stream the file
+  vTaskDelay(200 / portTICK_PERIOD_MS);
+
+  if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.println("[TEST RECORD]");
+    display.println("Uploading...");
+    display.display();
+    xSemaphoreGive(displayMutex);
+  }
+
+  // Reuse doHttpPostMultipart but target /api/esp32/voice_test_submit
+  String responseOut;
+  bool ok = doHttpPostMultipart("/api/esp32/voice_test_submit", "test", 30000, responseOut);
+
+  if (ok) {
+    tone(BUZZER, 1200, 200);
+    delay(100);
+    tone(BUZZER, 1500, 150);
+    triggerIndicatorSafe(true, "Test Rec OK!\nUploaded");
+  } else {
+    tone(BUZZER, 300, 400);
+    triggerIndicatorSafe(true, "Test Rec FAIL\nUpload Err");
+  }
+}
+

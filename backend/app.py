@@ -620,6 +620,108 @@ def api_test_asr_upload():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+
+# ── Voice Test Library ────────────────────────────────────────────────
+VOICE_TEST_DIR = os.path.join(os.path.dirname(__file__), '..', 'static', 'voice_test_library')
+os.makedirs(VOICE_TEST_DIR, exist_ok=True)
+
+@app.route('/api/voice_test/save', methods=['POST'])
+def voice_test_save():
+    """Save a recorded clip to the persistent test library and transcribe it."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file'}), 400
+
+    audio_file = request.files['audio']
+    label = request.form.get('label', '').strip() or 'recording'
+    # Sanitize label
+    label = ''.join(c for c in label if c.isalnum() or c in (' ', '-', '_')).strip()[:40]
+    ext = os.path.splitext(audio_file.filename)[1] or '.webm'
+
+    import datetime as _dt
+    ts = _dt.datetime.now().strftime('%Y%m%d_%H%M%S')
+    safe_label = label.replace(' ', '_')
+    filename = f"{ts}_{safe_label}{ext}"
+    save_path = os.path.join(VOICE_TEST_DIR, filename)
+    audio_file.save(save_path)
+
+    # Transcribe
+    try:
+        transcription = transcribe_audio(save_path)
+    except Exception as e:
+        transcription = f'[ERROR: {e}]'
+
+    return jsonify({
+        'success': True,
+        'filename': filename,
+        'label': label,
+        'transcription': transcription,
+        'size_kb': round(os.path.getsize(save_path) / 1024, 1)
+    })
+
+
+@app.route('/api/voice_test/list', methods=['GET'])
+def voice_test_list():
+    """Return all saved voice test recordings."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    import datetime as _dt
+    files = []
+    for fname in sorted(os.listdir(VOICE_TEST_DIR), reverse=True):
+        fpath = os.path.join(VOICE_TEST_DIR, fname)
+        if os.path.isfile(fpath):
+            stat = os.stat(fpath)
+            files.append({
+                'filename': fname,
+                'size_kb': round(stat.st_size / 1024, 1),
+                'created': _dt.datetime.fromtimestamp(stat.st_ctime).strftime('%d %b %Y, %H:%M')
+            })
+    return jsonify({'recordings': files})
+
+
+@app.route('/api/voice_test/delete/<filename>', methods=['DELETE'])
+def voice_test_delete(filename):
+    """Delete a saved voice test recording."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    # Security: only allow filenames, no path traversal
+    if '/' in filename or '\\' in filename or '..' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    fpath = os.path.join(VOICE_TEST_DIR, filename)
+    if os.path.exists(fpath):
+        os.remove(fpath)
+        return jsonify({'success': True})
+    return jsonify({'error': 'File not found'}), 404
+
+
+@app.route('/api/voice_test/audio/<filename>', methods=['GET'])
+def voice_test_audio(filename):
+    """Stream a saved voice test recording for playback."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    if '/' in filename or '\\' in filename or '..' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    return send_from_directory(VOICE_TEST_DIR, filename)
+
+
+@app.route('/api/voice_test/transcribe/<filename>', methods=['GET'])
+def voice_test_transcribe(filename):
+    """Re-transcribe a saved recording on demand."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    if '/' in filename or '\\' in filename or '..' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    fpath = os.path.join(VOICE_TEST_DIR, filename)
+    if not os.path.exists(fpath):
+        return jsonify({'error': 'File not found'}), 404
+    try:
+        transcription = transcribe_audio(fpath)
+        return jsonify({'success': True, 'transcription': transcription})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @app.route('/delete_student/<int:student_id>', methods=['POST'])
 def delete_student_route(student_id):
     if not session.get('logged_in'): 
@@ -831,20 +933,22 @@ def dashboard_stats():
     attendance_counts = []
     proxy_counts = []
 
+    from datetime import datetime, timedelta
     conn = get_db_connection()
     for i in range(6, -1, -1):
-        day = time.strftime('%Y-%m-%d', time.localtime(time.time() - i * 86400))
-        labels.append(time.strftime('%d %b', time.localtime(time.time() - i * 86400)))
+        day_dt = datetime.now() - timedelta(days=i)
+        day = day_dt.strftime('%Y-%m-%d')
+        labels.append(day_dt.strftime('%d %b'))
 
-        # Attendance count for this day
+        # Attendance count — use 'localtime' modifier so UTC timestamps match local dates
         row = conn.execute(
-            "SELECT COUNT(DISTINCT student_id) FROM AttendanceLogs WHERE date(timestamp) = ?", (day,)
+            "SELECT COUNT(DISTINCT student_id) FROM AttendanceLogs WHERE date(timestamp, 'localtime') = ?", (day,)
         ).fetchone()
         attendance_counts.append(row[0] if row else 0)
 
         # Fingerprint proxy alerts from ESP32 for this day
         fp_row = conn.execute(
-            "SELECT COUNT(*) FROM AttendanceLogs WHERE date(timestamp) = ? AND sensor_type = 'proxy_alert'", (day,)
+            "SELECT COUNT(*) FROM AttendanceLogs WHERE date(timestamp, 'localtime') = ? AND sensor_type = 'proxy_alert'", (day,)
         ).fetchone()
 
         # Voice proxy detections for this day
@@ -854,16 +958,16 @@ def dashboard_stats():
 
         proxy_counts.append((fp_row[0] if fp_row else 0) + (vp_row[0] if vp_row else 0))
 
-    # Today's voice proxy stats
-    today = time.strftime('%Y-%m-%d')
+    # Today's voice proxy stats — use local date (datetime.now) not UTC
+    today = datetime.now().strftime('%Y-%m-%d')
     today_voice = conn.execute(
         "SELECT COUNT(*) FROM VoiceMatches WHERE date = ? AND is_proxy = 1", (today,)
     ).fetchone()
     today_fp_proxy = conn.execute(
-        "SELECT COUNT(*) FROM AttendanceLogs WHERE date(timestamp) = ? AND sensor_type = 'proxy_alert'", (today,)
+        "SELECT COUNT(*) FROM AttendanceLogs WHERE date(timestamp, 'localtime') = ? AND sensor_type = 'proxy_alert'", (today,)
     ).fetchone()
     today_attendance = conn.execute(
-        "SELECT COUNT(DISTINCT student_id) FROM AttendanceLogs WHERE date(timestamp) = ?", (today,)
+        "SELECT COUNT(DISTINCT student_id) FROM AttendanceLogs WHERE date(timestamp, 'localtime') = ?", (today,)
     ).fetchone()
     total_voice_checks = conn.execute(
         "SELECT COUNT(*) FROM VoiceMatches WHERE date = ?", (today,)
@@ -913,7 +1017,7 @@ def esp32_status_api():
     current_mode = esp32_status['mode']
     
     # One-shot modes: Reset to attendance after sending once to ESP32
-    if current_mode in ['force_audit', 'enroll_master_finger']:
+    if current_mode in ['force_audit', 'enroll_master_finger', 'test_record']:
         esp32_status['mode'] = 'attendance'
 
     return jsonify({
@@ -923,6 +1027,82 @@ def esp32_status_api():
         'portal_open': portal_open,
         'timestamp': int(time.time())
     })
+
+
+@app.route('/api/voice_test/trigger_esp32', methods=['POST'])
+def voice_test_trigger_esp32():
+    """Tell the ESP32 to do a test recording with its INMP441 mic."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    esp32_status['mode'] = 'test_record'
+    esp32_status['voice_test_pending'] = True
+    esp32_status['voice_test_filename'] = None
+    return jsonify({'success': True, 'message': 'ESP32 will record on next poll (~2s)'})
+
+
+@app.route('/api/voice_test/esp32_poll', methods=['GET'])
+def voice_test_esp32_poll():
+    """Poll whether the ESP32 test recording has been received and transcribed."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    pending = esp32_status.get('voice_test_pending', False)
+    filename = esp32_status.get('voice_test_filename')
+    transcription = esp32_status.get('voice_test_transcription')  # None = still processing
+    return jsonify({'pending': pending, 'filename': filename, 'transcription': transcription})
+
+
+@app.route('/api/esp32/voice_test_submit', methods=['POST'])
+def esp32_voice_test_submit():
+    """
+    ESP32 uploads a WAV recorded from its INMP441 mic for the voice testing lab.
+    No session required — device endpoint, same pattern as /api/esp32/voice_submit.
+    Marks file as received IMMEDIATELY so the dashboard poll doesn't time out,
+    then runs enhance_audio + Whisper transcription in a background thread.
+    """
+    audio_file = request.files.get('audio')
+    if not audio_file:
+        print("[VoiceTestLab] ERROR: No 'audio' field in multipart request")
+        return jsonify({'error': 'No audio file'}), 400
+
+    import datetime as _dt
+    ts = _dt.datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"{ts}_esp32_mic.wav"
+    save_path = os.path.join(VOICE_TEST_DIR, filename)
+    audio_file.save(save_path)
+
+    saved_size = os.path.getsize(save_path) if os.path.exists(save_path) else 0
+    print(f"[VoiceTestLab] Received ESP32 recording: {filename} | Size: {saved_size} bytes")
+
+    if saved_size == 0:
+        if os.path.exists(save_path):
+            os.remove(save_path)
+        print("[VoiceTestLab] ERROR: 0-byte file — SD card read may have failed on ESP32")
+        return jsonify({'error': 'Empty audio file — check SD card on ESP32'}), 400
+
+    # ── Mark as received IMMEDIATELY so the dashboard poll returns now ──
+    # Transcription runs in the background; poll endpoint delivers it when ready.
+    esp32_status['voice_test_pending'] = False
+    esp32_status['voice_test_filename'] = filename
+    esp32_status['voice_test_transcription'] = None  # None = still processing
+
+    def _transcribe_bg(path, fname):
+        """Background thread: enhance audio then transcribe with Whisper."""
+        try:
+            enhance_audio(path)
+            print(f"[VoiceTestLab] enhance_audio done for {fname}")
+        except Exception as e:
+            print(f"[VoiceTestLab] enhance_audio warning: {e}")
+        try:
+            text = transcribe_audio(path)
+            print(f"[VoiceTestLab] Transcription: '{text}'")
+            esp32_status['voice_test_transcription'] = text
+        except Exception as e:
+            print(f"[VoiceTestLab] Transcription failed: {e}")
+            esp32_status['voice_test_transcription'] = f'[ERROR: {e}]'
+
+    threading.Thread(target=_transcribe_bg, args=(save_path, filename), daemon=True).start()
+
+    return jsonify({'success': True, 'filename': filename, 'size_bytes': saved_size})
 
 # Alias so enroll_sensors.html url_for('esp32_status_check') still works
 @app.route('/api/esp32/status_check', methods=['GET'])
@@ -1407,48 +1587,73 @@ def esp32_voice_submit():
             continue
         try:
             # verify_files returns (cosine_similarity_tensor, prediction_tensor)
-            # prediction uses SpeechBrain's own calibrated threshold
+            # prediction uses SpeechBrain's own calibrated threshold (~0.25 cosine)
             score_tensor, pred_tensor = model.verify_files(file_path, other_abs)
             score      = float(score_tensor.item())
-            model_pred = bool(pred_tensor.item())   # True = same speaker
+            model_pred = bool(pred_tensor.item())   # True = same speaker (SpeechBrain's judgement)
         except Exception as ex:
             print(f"[Voice] Compare error vs student {other['student_id']}: {ex}")
             score      = 0.0
             model_pred = False
 
-        # Proxy if the model's prediction agrees AND the score is >= 82%
-        # Less than 82% is strictly NOT a proxy.
-        is_match_flag = 1 if (model_pred and score >= 0.82) else 0
+        # ── Two-tier proxy classification ────────────────────────────────────
+        # CONFIRMED proxy: model says same speaker AND score >= 70%
+        # SUSPECT proxy:   model says same speaker OR score >= 45%
+        #   → Both tiers trigger fingerprint audit — better safe than sorry.
+        #   → 82% was too high: real proxy at 50.4% was slipping through.
+        CONFIRM_THRESH = 0.70   # model_pred=True + score >= 70%  → CONFIRMED
+        SUSPECT_THRESH = 0.45   # score >= 45% OR model_pred=True → SUSPECT
+
+        if model_pred and score >= CONFIRM_THRESH:
+            tier = "CONFIRMED"
+        elif model_pred or score >= SUSPECT_THRESH:
+            tier = "SUSPECT"
+        else:
+            tier = "OK"
+
+        is_match_flag = 1 if tier in ("CONFIRMED", "SUSPECT") else 0
 
         all_comparisons.append({
             'student_id':   other['student_id'],
             'student_name': other['name'],
             'score':        round(score * 100, 1),
-            'model_pred':   model_pred
+            'model_pred':   model_pred,
+            'tier':         tier
         })
 
         log_voice_match(today, student_id, other['student_id'], score, is_match_flag)
         print(f"[Voice] {student['name']} vs {other['name']}: "
               f"score={score:.4f} ({score*100:.1f}%)  "
-              f"model_pred={model_pred}  proxy={is_match_flag}")
+              f"model_pred={model_pred}  tier={tier}")
 
-        if score > best_score or (model_pred and not best_model_pred):
+        # Prefer model_pred=True hits over pure score maximums
+        # so a 50% model-confirmed match beats an 80% model-denied mismatch
+        curr_priority = (model_pred, score)
+        best_priority = (best_model_pred, best_score)
+        if curr_priority > best_priority:
             best_score      = score
             best_match      = other
             best_model_pred = model_pred
 
-    # Only flag as proxy if the best match also passed our 70% hard safety threshold
-    is_proxy = best_model_pred and (best_score >= 0.82)
+    # ── Final proxy decision ─────────────────────────────────────────────────
+    if best_model_pred and best_score >= CONFIRM_THRESH:
+        final_tier = "CONFIRMED"
+    elif best_model_pred or best_score >= SUSPECT_THRESH:
+        final_tier = "SUSPECT"
+    else:
+        final_tier = "OK"
+
+    is_proxy = final_tier in ("CONFIRMED", "SUSPECT")
 
     if is_proxy and best_match:
-        print(f"[Voice] PROXY DETECTED! {student['name']} matches {best_match['name']} at {best_score*100:.1f}%")
-        add_to_ai_feed(student['name'], 0, 0, f"VOICE PROXY {best_score*100:.0f}%")
-        # Tag this student's recording as a proxy source so subsequent
-        # legitimate students are not falsely matched against it.
-        # The audio file itself is kept for review and audit.
+        label = f"VOICE {'PROXY' if final_tier == 'CONFIRMED' else 'SUSPECT'} {best_score*100:.0f}%"
+        print(f"[Voice] {final_tier}! {student['name']} matches {best_match['name']} "
+              f"at {best_score*100:.1f}% — fingerprint audit triggered")
+        add_to_ai_feed(student['name'], 0, 0, label)
         mark_recording_as_proxy_source(student_id, today)
         return jsonify({
             'proxy': True,
+            'tier': final_tier,
             'student_id': student_id,
             'student_name': student['name'],
             'matched_student_id': best_match['student_id'],
@@ -1460,6 +1665,7 @@ def esp32_voice_submit():
     add_to_ai_feed(student['name'], 0, 0, f"VOICE OK {best_score*100:.0f}%")
     return jsonify({
         'proxy': False,
+        'tier': 'OK',
         'student_id': student_id,
         'student_name': student['name'],
         'best_score': round(best_score * 100, 1),

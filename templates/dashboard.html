@@ -3,186 +3,388 @@
 {% block content %}
 <style>
     :root {
-        --brand:        #4f46e5;
-        --brand-light:  #eef2ff;
-        --brand-mid:    #818cf8;
-        --success:      #059669;
-        --success-bg:   #ecfdf5;
-        --danger:       #dc2626;
-        --danger-bg:    #fef2f2;
-        --warn:         #d97706;
-        --warn-bg:      #fffbeb;
-        --purple:       #7c3aed;
-        --purple-bg:    #f5f3ff;
-        --surface:      #ffffff;
-        --surface-2:    #f8fafc;
-        --border:       #e2e8f0;
+        --brand: #4f46e5;
+        --brand-light: #eef2ff;
+        --brand-mid: #818cf8;
+        --success: #059669;
+        --success-bg: #ecfdf5;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --warn: #d97706;
+        --warn-bg: #fffbeb;
+        --purple: #7c3aed;
+        --purple-bg: #f5f3ff;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --border: #e2e8f0;
         --text-primary: #0f172a;
-        --text-muted:   #64748b;
-        --text-faint:   #94a3b8;
-        --radius:       14px;
-        --shadow-card:  0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+        --text-muted: #64748b;
+        --text-faint: #94a3b8;
+        --radius: 14px;
+        --shadow-card: 0 1px 3px rgba(0, 0, 0, .06), 0 4px 16px rgba(0, 0, 0, .06);
     }
 
     /* ── Stat Cards ─── */
     .stat-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); box-shadow: var(--shadow-card);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-card);
         padding: 1.3rem 1.4rem;
         transition: box-shadow .2s, transform .2s;
-        position: relative; overflow: hidden;
+        position: relative;
+        overflow: hidden;
     }
-    .stat-card:hover { box-shadow: 0 8px 28px rgba(79,70,229,.1); transform: translateY(-2px); }
+
+    .stat-card:hover {
+        box-shadow: 0 8px 28px rgba(79, 70, 229, .1);
+        transform: translateY(-2px);
+    }
+
     .stat-card .accent-bar {
-        position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
         border-radius: var(--radius) 0 0 var(--radius);
     }
+
     .stat-card .icon-box {
-        width: 44px; height: 44px; border-radius: 11px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.15rem; flex-shrink: 0;
+        width: 44px;
+        height: 44px;
+        border-radius: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
     }
-    .stat-card .stat-value { font-size: 2.2rem; font-weight: 900; line-height: 1; }
-    .stat-card .stat-label { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin-bottom: .2rem; }
-    .stat-card .stat-sub   { font-size: .72rem; color: var(--text-muted); margin-top: .5rem; }
+
+    .stat-card .stat-value {
+        font-size: 2.2rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    .stat-card .stat-label {
+        font-size: .68rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        margin-bottom: .2rem;
+    }
+
+    .stat-card .stat-sub {
+        font-size: .72rem;
+        color: var(--text-muted);
+        margin-top: .5rem;
+    }
 
     /* ── Proxy Cards ─── */
     .proxy-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); box-shadow: var(--shadow-card);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-card);
         padding: 1.2rem 1.4rem;
         transition: box-shadow .2s, transform .2s;
     }
-    .proxy-card:hover { box-shadow: 0 6px 24px rgba(79,70,229,.1); transform: translateY(-1px); }
-    .pc-bar-track { height: 5px; background: var(--border); border-radius: 999px; margin-top: .8rem; overflow: hidden; }
-    .pc-bar-fill  { height: 100%; border-radius: 999px; transition: width .5s ease; }
-    .status-dot   { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    .proxy-card:hover {
+        box-shadow: 0 6px 24px rgba(79, 70, 229, .1);
+        transform: translateY(-1px);
+    }
+
+    .pc-bar-track {
+        height: 5px;
+        background: var(--border);
+        border-radius: 999px;
+        margin-top: .8rem;
+        overflow: hidden;
+    }
+
+    .pc-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width .5s ease;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
 
     /* ── Terminal (ESP32) Card ─── */
     .terminal-card {
-        border-radius: var(--radius); padding: 1.3rem 1.4rem;
-        color: #fff; position: relative; overflow: hidden;
+        border-radius: var(--radius);
+        padding: 1.3rem 1.4rem;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
         transition: box-shadow .2s;
-        box-shadow: 0 4px 24px rgba(79,70,229,.2);
+        box-shadow: 0 4px 24px rgba(79, 70, 229, .2);
         background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
     }
-    .terminal-card:hover { box-shadow: 0 8px 32px rgba(79,70,229,.32); }
+
+    .terminal-card:hover {
+        box-shadow: 0 8px 32px rgba(79, 70, 229, .32);
+    }
+
     .esp32-badge {
-        display: inline-flex; align-items: center; gap: 8px;
-        font-size: .7rem; font-family: monospace; font-weight: 700;
-        background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.1);
-        border-radius: 8px; padding: 5px 11px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: .7rem;
+        font-family: monospace;
+        font-weight: 700;
+        background: rgba(0, 0, 0, .3);
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 8px;
+        padding: 5px 11px;
     }
 
     /* ── AI Modules Card ─── */
     .ai-modules-card {
         background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #0f172a 100%);
-        border-radius: var(--radius); padding: 1.3rem 1.4rem;
-        border: 1px solid rgba(99,102,241,.25);
-        box-shadow: 0 4px 24px rgba(79,70,229,.18);
-        position: relative; overflow: hidden;
+        border-radius: var(--radius);
+        padding: 1.3rem 1.4rem;
+        border: 1px solid rgba(99, 102, 241, .25);
+        box-shadow: 0 4px 24px rgba(79, 70, 229, .18);
+        position: relative;
+        overflow: hidden;
     }
+
     .ai-modules-card::before {
-        content: ''; position: absolute;
-        width: 250px; height: 250px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(99,102,241,.12) 0%, transparent 70%);
-        right: -60px; top: -60px; pointer-events: none;
+        content: '';
+        position: absolute;
+        width: 250px;
+        height: 250px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, .12) 0%, transparent 70%);
+        right: -60px;
+        top: -60px;
+        pointer-events: none;
     }
 
     /* Animated neural bars */
-    .neural-bars { display: flex; gap: 2px; align-items: flex-end; height: 22px; }
+    .neural-bars {
+        display: flex;
+        gap: 2px;
+        align-items: flex-end;
+        height: 22px;
+    }
+
     .neural-bars .nb {
-        width: 3px; border-radius: 2px;
-        background: rgba(129,140,248,.55);
+        width: 3px;
+        border-radius: 2px;
+        background: rgba(129, 140, 248, .55);
         animation: nb-pulse 1.6s ease-in-out infinite;
     }
+
     @keyframes nb-pulse {
-        0%,100% { transform: scaleY(.25); opacity: .35; }
-        50%      { transform: scaleY(1);   opacity: 1;  }
+
+        0%,
+        100% {
+            transform: scaleY(.25);
+            opacity: .35;
+        }
+
+        50% {
+            transform: scaleY(1);
+            opacity: 1;
+        }
     }
 
     /* AI module nav buttons */
     .ai-nav-btn {
-        display: flex; align-items: center; gap: 9px;
-        background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
-        border-radius: 10px; padding: .6rem .9rem;
-        text-decoration: none; color: #e0e7ff; font-size: .75rem; font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        background: rgba(255, 255, 255, .06);
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: 10px;
+        padding: .6rem .9rem;
+        text-decoration: none;
+        color: #e0e7ff;
+        font-size: .75rem;
+        font-weight: 700;
         transition: background .15s, border-color .15s;
     }
-    .ai-nav-btn:hover { background: rgba(99,102,241,.25); border-color: rgba(99,102,241,.5); color: #fff; }
+
+    .ai-nav-btn:hover {
+        background: rgba(99, 102, 241, .25);
+        border-color: rgba(99, 102, 241, .5);
+        color: #fff;
+    }
+
     .ai-nav-btn .btn-icon {
-        width: 28px; height: 28px; border-radius: 7px;
-        background: rgba(99,102,241,.3); display: flex; align-items: center; justify-content: center;
-        font-size: .8rem; color: #a5b4fc; flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: rgba(99, 102, 241, .3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .8rem;
+        color: #a5b4fc;
+        flex-shrink: 0;
     }
 
     /* ── Chart Card ─── */
     .chart-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); box-shadow: var(--shadow-card);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-card);
         padding: 1.3rem 1.5rem;
     }
-    .chart-card .cc-title { font-size: .8rem; font-weight: 700; color: var(--text-primary); }
-    .chart-card .cc-sub   { font-size: .65rem; color: var(--text-faint); margin-top: 2px; }
+
+    .chart-card .cc-title {
+        font-size: .8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .chart-card .cc-sub {
+        font-size: .65rem;
+        color: var(--text-faint);
+        margin-top: 2px;
+    }
 
     /* ── Broadcast Card ─── */
     .broadcast-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: var(--radius); box-shadow: var(--shadow-card);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-card);
         padding: 1.3rem 1.5rem;
     }
 
     /* ── Section divider ─── */
     .section-head {
-        font-size: .68rem; font-weight: 700; letter-spacing: .1em;
-        text-transform: uppercase; color: var(--text-faint);
-        margin-bottom: .75rem; display: flex; align-items: center; gap: 8px;
+        font-size: .68rem;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        margin-bottom: .75rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     /* ── ESP Showcase Banner ─── */
     .esp-showcase-card {
         background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #312e81 100%);
-        border-radius: var(--radius); padding: 0;
-        color: #fff; position: relative; overflow: hidden;
+        border-radius: var(--radius);
+        padding: 0;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
         transition: box-shadow .3s;
         box-shadow: 0 8px 32px rgba(30, 27, 75, .2);
-        display: flex; align-items: stretch; min-height: 200px;
-        border: 1px solid rgba(99,102,241,.2);
+        display: flex;
+        align-items: stretch;
+        min-height: 200px;
+        border: 1px solid rgba(99, 102, 241, .2);
     }
+
     .esp-showcase-card::before {
-        content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
-        background: radial-gradient(circle at 80% 50%, rgba(99,102,241,.2) 0%, transparent 50%);
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 80% 50%, rgba(99, 102, 241, .2) 0%, transparent 50%);
         pointer-events: none;
     }
+
     .floating-device-dash {
         animation: float-dash 6s ease-in-out infinite;
-        filter: drop-shadow(0 15px 25px rgba(0,0,0,.5));
-        max-height: 240px; object-fit: contain;
-    }
-    @keyframes float-dash {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-12px) rotate(1deg); }
+        filter: drop-shadow(0 15px 25px rgba(0, 0, 0, .5));
+        max-height: 240px;
+        object-fit: contain;
     }
 
-    @keyframes ping { 0%{transform:scale(1);opacity:.75;} 75%,100%{transform:scale(1.8);opacity:0;} }
-    .section-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    @keyframes float-dash {
+
+        0%,
+        100% {
+            transform: translateY(0px) rotate(0deg);
+        }
+
+        50% {
+            transform: translateY(-12px) rotate(1deg);
+        }
+    }
+
+    @keyframes ping {
+        0% {
+            transform: scale(1);
+            opacity: .75;
+        }
+
+        75%,
+        100% {
+            transform: scale(1.8);
+            opacity: 0;
+        }
+    }
+
+    .section-head::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+    }
 
     /* ── Progress ring ─── */
-    .ring-wrap { position: relative; width: 54px; height: 54px; flex-shrink: 0; }
-    .ring-wrap svg { transform: rotate(-90deg); }
-    .ring-val {
-        position: absolute; inset: 0; display: flex;
-        align-items: center; justify-content: center;
-        font-size: .6rem; font-weight: 800; color: var(--purple);
+    .ring-wrap {
+        position: relative;
+        width: 54px;
+        height: 54px;
+        flex-shrink: 0;
     }
 
-    @keyframes ping { 0%{transform:scale(1);opacity:.75;} 75%,100%{transform:scale(1.8);opacity:0;} }
+    .ring-wrap svg {
+        transform: rotate(-90deg);
+    }
+
+    .ring-val {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .6rem;
+        font-weight: 800;
+        color: var(--purple);
+    }
+
+    @keyframes ping {
+        0% {
+            transform: scale(1);
+            opacity: .75;
+        }
+
+        75%,
+        100% {
+            transform: scale(1.8);
+            opacity: 0;
+        }
+    }
 </style>
 
 <div style="display:flex; flex-direction:column; gap:1.5rem;">
 
     <!-- ── Page Header ─────────────────────────────────── -->
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; position: relative; z-index: 30;">
+    <div
+        style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; position: relative; z-index: 30;">
         <div>
             <h1 style="font-size:1.55rem; font-weight:900; color:var(--text-primary); margin:0;">Overview</h1>
             <p style="font-size:.82rem; color:var(--text-muted); margin:.2rem 0 0;">
@@ -191,11 +393,11 @@
         </div>
         <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
             <!-- Gate Toggle -->
-            <form id="portal-toggle-form" action="{{ url_for('action_toggle_attendance') }}" method="POST"
-                  style="margin:0; display:flex; align-items:center; gap:.5rem;
+            <form id="portal-toggle-form" action="{{ url_for('action_toggle_attendance') }}" method="POST" style="margin:0; display:flex; align-items:center; gap:.5rem;
                          background:var(--surface); border:1px solid var(--border);
                          padding:.3rem .4rem .3rem .9rem; border-radius:10px; box-shadow:0 1px 2px rgba(0,0,0,.05);">
-                <div style="display:flex; align-items:center; gap:7px; border-right:1px solid var(--border); padding-right:10px;">
+                <div
+                    style="display:flex; align-items:center; gap:7px; border-right:1px solid var(--border); padding-right:10px;">
                     <div id="portal-status-dot" style="width:8px; height:8px; border-radius:50%;
                          background:{% if daily_status == 1 %}var(--success){% else %}var(--danger){% endif %};
                          transition:background .2s;"></div>
@@ -204,16 +406,14 @@
                         {% if daily_status == 1 %}GATE OPEN{% else %}GATE CLOSED{% endif %}
                     </span>
                 </div>
-                <button id="portal-toggle-btn" type="submit"
-                        style="background:{% if daily_status == 1 %}var(--danger-bg){% else %}var(--success-bg){% endif %};
+                <button id="portal-toggle-btn" type="submit" style="background:{% if daily_status == 1 %}var(--danger-bg){% else %}var(--success-bg){% endif %};
                                color:{% if daily_status == 1 %}var(--danger){% else %}var(--success){% endif %};
                                border:none; border-radius:7px; padding:.32rem .7rem;
                                font-size:.73rem; font-weight:700; cursor:pointer; transition:all .2s;">
                     {% if daily_status == 1 %}Lock Gate{% else %}Unlock Gate{% endif %}
                 </button>
             </form>
-            <a href="{{ url_for('enroll') }}"
-               style="display:inline-flex; align-items:center; gap:7px; padding:.5rem 1rem;
+            <a href="{{ url_for('enroll') }}" style="display:inline-flex; align-items:center; gap:7px; padding:.5rem 1rem;
                       background:var(--brand); color:#fff; border-radius:10px;
                       font-size:.78rem; font-weight:700; text-decoration:none;
                       box-shadow:0 4px 12px rgba(79,70,229,.3); transition:opacity .15s;">
@@ -223,7 +423,8 @@
     </div>
 
     <!-- ── Row 1: 5 Stat Tiles ─────────────────────────── -->
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:1rem; position: relative; z-index: 30;">
+    <div
+        style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); gap:1rem; position: relative; z-index: 30;">
 
         <!-- Total Students -->
         <div class="stat-card" style="padding-left:1.85rem;">
@@ -237,7 +438,8 @@
                     <i class="fa-solid fa-users"></i>
                 </div>
             </div>
-            <p class="stat-sub"><i class="fa-solid fa-address-card" style="color:var(--text-faint); font-size:.6rem; margin-right:4px;"></i>Currently enrolled</p>
+            <p class="stat-sub"><i class="fa-solid fa-address-card"
+                    style="color:var(--text-faint); font-size:.6rem; margin-right:4px;"></i>Currently enrolled</p>
         </div>
 
         <!-- Present Today -->
@@ -252,7 +454,8 @@
                     <i class="fa-solid fa-calendar-check"></i>
                 </div>
             </div>
-            <p class="stat-sub"><i class="fa-solid fa-user-check" style="color:var(--text-faint); font-size:.6rem; margin-right:4px;"></i>Checked in today</p>
+            <p class="stat-sub"><i class="fa-solid fa-user-check"
+                    style="color:var(--text-faint); font-size:.6rem; margin-right:4px;"></i>Checked in today</p>
         </div>
 
         <!-- Attendance Rate -->
@@ -265,11 +468,10 @@
                 </div>
                 <div class="ring-wrap" style="margin-top:.1rem;">
                     <svg width="54" height="54" viewBox="0 0 54 54">
-                        <circle cx="27" cy="27" r="22" fill="none" stroke="#ede9fe" stroke-width="5"/>
-                        <circle id="ring-circle" cx="27" cy="27" r="22" fill="none"
-                                stroke="var(--purple)" stroke-width="5"
-                                stroke-dasharray="138.2" stroke-dashoffset="138.2"
-                                stroke-linecap="round" style="transition:stroke-dashoffset .6s ease;"/>
+                        <circle cx="27" cy="27" r="22" fill="none" stroke="#ede9fe" stroke-width="5" />
+                        <circle id="ring-circle" cx="27" cy="27" r="22" fill="none" stroke="var(--purple)"
+                            stroke-width="5" stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round"
+                            style="transition:stroke-dashoffset .6s ease;" />
                     </svg>
                     <div class="ring-val" id="ring-val">–</div>
                 </div>
@@ -289,7 +491,8 @@
                     <i class="fa-solid fa-user-slash"></i>
                 </div>
             </div>
-            <p class="stat-sub"><i class="fa-solid fa-ban" style="color:var(--text-faint); font-size:.6rem; margin-right:4px;"></i>Access revoked</p>
+            <p class="stat-sub"><i class="fa-solid fa-ban"
+                    style="color:var(--text-faint); font-size:.6rem; margin-right:4px;"></i>Access revoked</p>
         </div>
 
         <!-- Fraud Rate -->
@@ -310,11 +513,14 @@
     </div>
 
     <!-- ── ESP32 Hardware & AI Showcase ──────────────────────── -->
-    <div class="esp-showcase-card" id="esp32-card" style="margin-bottom: 1.25rem; display: flex; align-items: stretch; position: relative; z-index: 10;">
+    <div class="esp-showcase-card" id="esp32-card"
+        style="margin-bottom: 1.25rem; display: flex; align-items: stretch; position: relative; z-index: 10;">
         <!-- Mesh Background -->
-        <canvas id="device-neural-mesh" style="position:absolute; inset:0; width:100%; height:100%; border-radius:inherit; pointer-events:none; z-index:0;"></canvas>
+        <canvas id="device-neural-mesh"
+            style="position:absolute; inset:0; width:100%; height:100%; border-radius:inherit; pointer-events:none; z-index:0;"></canvas>
         <!-- Left: Terminal Info -->
-        <div style="flex:1.1; padding: 2.2rem 2.5rem; display:flex; flex-direction:column; justify-content:center; z-index:1;">
+        <div
+            style="flex:1.1; padding: 2.2rem 2.5rem; display:flex; flex-direction:column; justify-content:center; z-index:1;">
             <div style="display:flex; align-items:center; gap:.7rem; margin-bottom:1rem;">
                 <div id="esp32-icon-box" style="width:38px; height:38px; border-radius:10px;
                      background:rgba(255,255,255,.1); display:flex; align-items:center;
@@ -323,40 +529,54 @@
                 </div>
                 <div>
                     <h2 style="font-size:1.4rem; font-weight:800; margin:0; tracking-tight;">Team X Terminal</h2>
-                    <p style="font-size:.75rem; color:rgba(255,255,255,.6); margin:0; text-transform:uppercase; letter-spacing:.05em;">Edge AI Campus Scanner</p>
+                    <p
+                        style="font-size:.75rem; color:rgba(255,255,255,.6); margin:0; text-transform:uppercase; letter-spacing:.05em;">
+                        Edge AI Campus Scanner</p>
                 </div>
             </div>
-            
-            <p style="font-size:.85rem; color:rgba(255,255,255,.7); line-height:1.6; max-width:400px; margin-bottom:1.5rem;">
-                Real-time synchronization with the physical biometric gateway. Processes RFID and fingerprint logs instantly.
+
+            <p
+                style="font-size:.85rem; color:rgba(255,255,255,.7); line-height:1.6; max-width:400px; margin-bottom:1.5rem;">
+                Real-time synchronization with the physical biometric gateway. Processes RFID and fingerprint logs
+                instantly.
             </p>
-            
+
             <div style="display:flex; align-items:center; gap:1.5rem;">
-                <div class="esp32-badge" style="padding: 6px 14px; background:rgba(0,0,0,.4); border-color:rgba(255,255,255,.15);">
+                <div class="esp32-badge"
+                    style="padding: 6px 14px; background:rgba(0,0,0,.4); border-color:rgba(255,255,255,.15);">
                     <span style="position:relative; display:inline-flex; width:10px; height:10px;">
-                        <span id="esp32-ping-anim" style="position:absolute; inset:0; border-radius:50%; background:#4ade80; opacity:.75; animation:ping 1.2s infinite;"></span>
-                        <span id="esp32-dot" style="border-radius:50%; background:#4ade80; width:10px; height:10px; position:relative;"></span>
+                        <span id="esp32-ping-anim"
+                            style="position:absolute; inset:0; border-radius:50%; background:#4ade80; opacity:.75; animation:ping 1.2s infinite;"></span>
+                        <span id="esp32-dot"
+                            style="border-radius:50%; background:#4ade80; width:10px; height:10px; position:relative;"></span>
                     </span>
                     <span id="esp32-text" style="font-size:.75rem;">LINK ACTIVE</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; color:rgba(255,255,255,.4); font-size:.7rem; font-family:monospace;">
+                <div
+                    style="display:flex; align-items:center; gap:6px; color:rgba(255,255,255,.4); font-size:.7rem; font-family:monospace;">
                     <i class="fa-solid fa-clock-rotate-left"></i> <span id="esp32-last-seen-text">Synced just now</span>
                 </div>
             </div>
         </div>
-        
+
         <!-- Center: Floating Device Image -->
-        <div style="flex:0.8; display:flex; align-items:center; justify-content:center; position:relative; padding:1rem 0; z-index:1;">
-            <img src="{{ url_for('static', filename='images/esp32_device.png') }}" 
-                 alt="ESP32 Terminal" class="floating-device-dash">
+        <div
+            style="flex:0.8; display:flex; align-items:center; justify-content:center; position:relative; padding:1rem 0; z-index:1;">
+            <img src="{{ url_for('static', filename='images/esp32_device.png') }}" alt="ESP32 Terminal"
+                class="floating-device-dash">
         </div>
 
         <!-- Right: AI Security Modules Links (Callouts) -->
-        <div style="flex:1; padding: 2.2rem 2.5rem 2.2rem 1.5rem; display:flex; flex-direction:column; justify-content:center; z-index:1; border-left: 1px dashed rgba(255,255,255,0.15); position:relative;">
-            
+        <div
+            style="flex:1; padding: 2.2rem 2.5rem 2.2rem 1.5rem; display:flex; flex-direction:column; justify-content:center; z-index:1; border-left: 1px dashed rgba(255,255,255,0.15); position:relative;">
+
             <!-- Connection line effect from device -->
-            <div style="position:absolute; left:-1.5rem; top:50%; width:1.5rem; height:1px; background:rgba(255,255,255,0.15);"></div>
-            <div style="position:absolute; left:0; top:50%; transform:translate(-50%, -50%); width:6px; height:6px; border-radius:50%; background:var(--brand); box-shadow:0 0 10px var(--brand);"></div>
+            <div
+                style="position:absolute; left:-1.5rem; top:50%; width:1.5rem; height:1px; background:rgba(255,255,255,0.15);">
+            </div>
+            <div
+                style="position:absolute; left:0; top:50%; transform:translate(-50%, -50%); width:6px; height:6px; border-radius:50%; background:var(--brand); box-shadow:0 0 10px var(--brand);">
+            </div>
 
             <!-- Neural bars header -->
             <div style="display:flex; align-items:center; gap:.6rem; margin-bottom:.75rem; position:relative;">
@@ -369,12 +589,14 @@
                     <p style="font-size:.6rem; color:rgba(255,255,255,.4); margin:0;">Access detection engines</p>
                 </div>
             </div>
-            
+
             <!-- Neural animation -->
             <div class="neural-bars" style="margin-bottom:.8rem; opacity:0.8;">
                 {% set bar_heights = [8,14,20,18,10,16,22,12,19,15,11,20,9,17,21,13,16,10,8,14] %}
                 {% for h in bar_heights %}
-                <div class="nb" style="height:{{ h }}px; animation-delay:{{ (loop.index0 * 0.08)|round(2) }}s; background:rgba(165,180,252,0.4);"></div>
+                <div class="nb"
+                    style="height:{{ h }}px; animation-delay:{{ (loop.index0 * 0.08)|round(2) }}s; background:rgba(165,180,252,0.4);">
+                </div>
                 {% endfor %}
             </div>
 
@@ -400,7 +622,8 @@
     </div>
 
     <!-- ── Row 2: Proxy Cards ─── -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; position: relative; z-index: 30;">
+    <div
+        style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; position: relative; z-index: 30;">
 
         <!-- ID Violations -->
         <div class="proxy-card">
@@ -417,15 +640,21 @@
             <div style="display:flex; align-items:flex-end; justify-content:space-between;">
                 <div>
                     <p style="font-size:2rem; font-weight:900; color:var(--warn); margin:0;" id="fp-proxy-count">–</p>
-                    <p style="font-size:.63rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0;">Alerts Today</p>
+                    <p
+                        style="font-size:.63rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0;">
+                        Alerts Today</p>
                 </div>
                 <div style="text-align:right;">
-                    <p style="font-size:.68rem; font-weight:700; color:var(--text-muted); margin:0;">Biometric Engine</p>
+                    <p style="font-size:.68rem; font-weight:700; color:var(--text-muted); margin:0;">Biometric Engine
+                    </p>
                     <p style="font-size:.6rem; color:var(--text-faint); margin:0;">Method</p>
                 </div>
             </div>
-            <div class="pc-bar-track"><div class="pc-bar-fill" id="fp-bar" style="background:var(--warn); width:0%;"></div></div>
-            <div id="fp-status-row" style="display:flex; align-items:center; gap:6px; margin-top:.6rem; font-size:.68rem; font-weight:600; color:var(--success);">
+            <div class="pc-bar-track">
+                <div class="pc-bar-fill" id="fp-bar" style="background:var(--warn); width:0%;"></div>
+            </div>
+            <div id="fp-status-row"
+                style="display:flex; align-items:center; gap:6px; margin-top:.6rem; font-size:.68rem; font-weight:600; color:var(--success);">
                 <div class="status-dot" style="background:var(--success);"></div><span>System Nominal</span>
             </div>
         </div>
@@ -438,22 +667,30 @@
                     <i class="fa-solid fa-waveform-lines"></i>
                 </div>
                 <div>
-                    <p style="font-size:.78rem; font-weight:700; color:var(--text-primary); margin:0;">Voice Impersonation</p>
+                    <p style="font-size:.78rem; font-weight:700; color:var(--text-primary); margin:0;">Voice
+                        Impersonation</p>
                     <p style="font-size:.62rem; color:var(--text-faint); margin:0;">Acoustic analysis system</p>
                 </div>
             </div>
             <div style="display:flex; align-items:flex-end; justify-content:space-between;">
                 <div>
-                    <p style="font-size:2rem; font-weight:900; color:var(--purple); margin:0;" id="voice-proxy-count">–</p>
-                    <p style="font-size:.63rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0;">Flags Today</p>
+                    <p style="font-size:2rem; font-weight:900; color:var(--purple); margin:0;" id="voice-proxy-count">–
+                    </p>
+                    <p
+                        style="font-size:.63rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0;">
+                        Flags Today</p>
                 </div>
                 <div style="text-align:right;">
-                    <p style="font-size:.68rem; font-weight:700; color:var(--text-muted); margin:0;" id="voice-clear-rate">–%</p>
+                    <p style="font-size:.68rem; font-weight:700; color:var(--text-muted); margin:0;"
+                        id="voice-clear-rate">–%</p>
                     <p style="font-size:.6rem; color:var(--text-faint); margin:0;">Pass Rate</p>
                 </div>
             </div>
-            <div class="pc-bar-track"><div class="pc-bar-fill" id="voice-bar" style="background:var(--purple); width:0%;"></div></div>
-            <div id="voice-status-row" style="display:flex; align-items:center; gap:6px; margin-top:.6rem; font-size:.68rem; font-weight:600; color:var(--success);">
+            <div class="pc-bar-track">
+                <div class="pc-bar-fill" id="voice-bar" style="background:var(--purple); width:0%;"></div>
+            </div>
+            <div id="voice-status-row"
+                style="display:flex; align-items:center; gap:6px; margin-top:.6rem; font-size:.68rem; font-weight:600; color:var(--success);">
                 <div class="status-dot" style="background:var(--success);"></div><span>All Voices Verified</span>
             </div>
         </div>
@@ -469,7 +706,8 @@
         <div class="chart-card">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
                 <div>
-                    <p class="cc-title"><i class="fa-solid fa-chart-column" style="color:var(--brand); margin-right:6px;"></i>Campus Attendance</p>
+                    <p class="cc-title"><i class="fa-solid fa-chart-column"
+                            style="color:var(--brand); margin-right:6px;"></i>Campus Attendance</p>
                     <p class="cc-sub">Authorized entries — last 7 days</p>
                 </div>
                 <span style="font-size:.65rem; font-weight:700; color:var(--brand);
@@ -481,22 +719,30 @@
         <!-- Security Doughnut -->
         <div class="chart-card" style="display:flex; flex-direction:column;">
             <div style="margin-bottom:1rem;">
-                <p class="cc-title"><i class="fa-solid fa-shield-halved" style="color:var(--warn); margin-right:6px;"></i>Security Alerts</p>
+                <p class="cc-title"><i class="fa-solid fa-shield-halved"
+                        style="color:var(--warn); margin-right:6px;"></i>Security Alerts</p>
                 <p class="cc-sub">Violations detected — last 7 days</p>
             </div>
             <div style="flex:1; display:flex; align-items:center; justify-content:center; position:relative;">
                 <canvas id="proxyChart" style="max-width:155px; max-height:155px;"></canvas>
                 <div style="position:absolute; text-align:center; pointer-events:none;">
-                    <p id="proxy-total-label" style="font-size:1.4rem; font-weight:900; color:var(--text-primary); margin:0;">–</p>
-                    <p style="font-size:.6rem; font-weight:700; color:var(--text-faint); margin:0; text-transform:uppercase; letter-spacing:.06em;">Total</p>
+                    <p id="proxy-total-label"
+                        style="font-size:1.4rem; font-weight:900; color:var(--text-primary); margin:0;">–</p>
+                    <p
+                        style="font-size:.6rem; font-weight:700; color:var(--text-faint); margin:0; text-transform:uppercase; letter-spacing:.06em;">
+                        Total</p>
                 </div>
             </div>
             <div style="display:flex; gap:.75rem; justify-content:center; margin-top:.75rem; flex-wrap:wrap;">
                 <div style="display:flex; align-items:center; gap:5px; font-size:.64rem; color:var(--text-muted);">
-                    <span style="width:9px; height:9px; border-radius:2px; background:var(--warn); display:inline-block;"></span> ID Violations
+                    <span
+                        style="width:9px; height:9px; border-radius:2px; background:var(--warn); display:inline-block;"></span>
+                    ID Violations
                 </div>
                 <div style="display:flex; align-items:center; gap:5px; font-size:.64rem; color:var(--text-muted);">
-                    <span style="width:9px; height:9px; border-radius:2px; background:var(--purple); display:inline-block;"></span> Voice Flags
+                    <span
+                        style="width:9px; height:9px; border-radius:2px; background:var(--purple); display:inline-block;"></span>
+                    Voice Flags
                 </div>
             </div>
         </div>
@@ -506,32 +752,35 @@
     <!-- ── Row 4: Broadcast ──────────────────────────── -->
     <div class="broadcast-card" style="position: relative; z-index: 30;">
         <div style="display:flex; align-items:center; gap:.8rem; margin-bottom:.8rem;">
-            <div style="width:40px; height:40px; border-radius:10px; background:var(--brand-light);
+            <div
+                style="width:40px; height:40px; border-radius:10px; background:var(--brand-light);
                  color:var(--brand); display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;">
                 <i class="fa-solid fa-bullhorn"></i>
             </div>
             <div>
-                <h3 style="font-size:.88rem; font-weight:800; color:var(--text-primary); margin:0;">Mass Communication</h3>
-                <p style="font-size:.7rem; color:var(--text-faint); margin:.1rem 0 0;">Broadcast urgent SMS to all {{ total }} registered profiles</p>
+                <h3 style="font-size:.88rem; font-weight:800; color:var(--text-primary); margin:0;">Mass Communication
+                </h3>
+                <p style="font-size:.7rem; color:var(--text-faint); margin:.1rem 0 0;">Broadcast urgent SMS to all {{
+                    total }} registered profiles</p>
             </div>
         </div>
-        <textarea id="notice-text" rows="3"
-            style="width:100%; font-size:.8rem; border:1px solid var(--border); border-radius:10px;
+        <textarea id="notice-text" rows="3" style="width:100%; font-size:.8rem; border:1px solid var(--border); border-radius:10px;
                    padding:.6rem .8rem; resize:none; outline:none; font-family:inherit;
                    color:var(--text-primary); transition:border .15s; box-sizing:border-box;"
-            placeholder="Type your important announcement here…"
-            onfocus="this.style.borderColor='var(--brand)'"
+            placeholder="Type your important announcement here…" onfocus="this.style.borderColor='var(--brand)'"
             onblur="this.style.borderColor='var(--border)'"></textarea>
         <div style="display:flex; align-items:center; justify-content:space-between; margin-top:.6rem;
              background:var(--surface-2); border:1px solid var(--border); border-radius:9px;
              padding:.5rem .8rem; flex-wrap:wrap; gap:.5rem;">
             <div style="display:flex; gap:1rem; font-size:.68rem; color:var(--text-muted);">
-                <span><i class="fa-solid fa-text-width" style="color:var(--text-faint); margin-right:4px;"></i>Chars: <strong id="char-count" style="color:var(--text-primary);">0</strong></span>
-                <span><i class="fa-solid fa-envelope" style="color:var(--text-faint); margin-right:4px;"></i>Parts: <strong id="sms-parts" style="color:var(--brand);">1</strong></span>
-                <span><i class="fa-solid fa-coins" style="color:var(--text-faint); margin-right:4px;"></i>Cost: <strong id="sms-cost" style="color:var(--success);">0.00 ৳</strong></span>
+                <span><i class="fa-solid fa-text-width" style="color:var(--text-faint); margin-right:4px;"></i>Chars:
+                    <strong id="char-count" style="color:var(--text-primary);">0</strong></span>
+                <span><i class="fa-solid fa-envelope" style="color:var(--text-faint); margin-right:4px;"></i>Parts:
+                    <strong id="sms-parts" style="color:var(--brand);">1</strong></span>
+                <span><i class="fa-solid fa-coins" style="color:var(--text-faint); margin-right:4px;"></i>Cost: <strong
+                        id="sms-cost" style="color:var(--success);">0.00 ৳</strong></span>
             </div>
-            <button id="btn-send-notice" onclick="sendCustomNotice()"
-                style="display:inline-flex; align-items:center; gap:6px; padding:.42rem .95rem;
+            <button id="btn-send-notice" onclick="sendCustomNotice()" style="display:inline-flex; align-items:center; gap:6px; padding:.42rem .95rem;
                        background:var(--brand); color:#fff; border:none; border-radius:8px;
                        font-size:.75rem; font-weight:700; cursor:pointer; transition:opacity .15s;"
                 onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
@@ -543,8 +792,7 @@
 </div>
 
 <!-- Toast -->
-<div id="toast-notification"
-     style="display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999;
+<div id="toast-notification" style="display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999;
             align-items:center; gap:.75rem; padding:.8rem 1.2rem; border-radius:12px;
             box-shadow:0 8px 32px rgba(0,0,0,.18); color:#fff; font-size:.82rem;
             font-weight:700; max-width:320px; transition:opacity .3s; opacity:0; pointer-events:none;">
@@ -557,351 +805,357 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 
-// ── Live Date ────────────────────────────────────────────
-document.getElementById('live-date').textContent = new Date().toLocaleDateString('en-GB', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-});
+    // ── Live Date ────────────────────────────────────────────
+    document.getElementById('live-date').textContent = new Date().toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
 
-// ── Gate Toggle (AJAX) ───────────────────────────────────
-function updatePortalUI(isOpen) {
-    const label = document.getElementById('portal-status-label');
-    const dot   = document.getElementById('portal-status-dot');
-    const btn   = document.getElementById('portal-toggle-btn');
-    if (!label) return;
-    if (isOpen) {
-        label.textContent = 'GATE OPEN';
-        label.style.color = 'var(--success)';
-        dot.style.background = 'var(--success)';
-        btn.textContent = 'Lock Gate';
-        btn.style.background = 'var(--danger-bg)';
-        btn.style.color = 'var(--danger)';
-    } else {
-        label.textContent = 'GATE CLOSED';
-        label.style.color = 'var(--danger)';
-        dot.style.background = 'var(--danger)';
-        btn.textContent = 'Unlock Gate';
-        btn.style.background = 'var(--success-bg)';
-        btn.style.color = 'var(--success)';
+    // ── Gate Toggle (AJAX) ───────────────────────────────────
+    function updatePortalUI(isOpen) {
+        const label = document.getElementById('portal-status-label');
+        const dot = document.getElementById('portal-status-dot');
+        const btn = document.getElementById('portal-toggle-btn');
+        if (!label) return;
+        if (isOpen) {
+            label.textContent = 'GATE OPEN';
+            label.style.color = 'var(--success)';
+            dot.style.background = 'var(--success)';
+            btn.textContent = 'Lock Gate';
+            btn.style.background = 'var(--danger-bg)';
+            btn.style.color = 'var(--danger)';
+        } else {
+            label.textContent = 'GATE CLOSED';
+            label.style.color = 'var(--danger)';
+            dot.style.background = 'var(--danger)';
+            btn.textContent = 'Unlock Gate';
+            btn.style.background = 'var(--success-bg)';
+            btn.style.color = 'var(--success)';
+        }
     }
-}
 
-document.getElementById('portal-toggle-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    fetch(this.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json())
-        .then(d => updatePortalUI(d.new_status === 1))
-        .catch(() => this.submit());
-});
+    document.getElementById('portal-toggle-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        fetch(this.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(d => updatePortalUI(d.new_status === 1))
+            .catch(() => this.submit());
+    });
 
-// ── ESP32 Status Poll ────────────────────────────────────
-let offlineMissCount = 0;
-const OFFLINE_THRESHOLD = 12;
-const OFFLINE_TRIGGER   = 3;
+    // ── ESP32 Status Poll ────────────────────────────────────
+    let offlineMissCount = 0;
+    const OFFLINE_THRESHOLD = 12;
+    const OFFLINE_TRIGGER = 3;
 
-function pollSystem() {
-    fetch('/api/system/status')
-        .then(r => r.json())
-        .then(data => {
-            updatePortalUI(data.daily_status === 1);
+    function pollSystem() {
+        fetch('/api/system/status')
+            .then(r => r.json())
+            .then(data => {
+                updatePortalUI(data.daily_status === 1);
 
-            const now      = data.server_time || (Date.now() / 1000);
-            const lastSeen = parseFloat(data.esp32_last_seen) || 0;
-            const diff     = now - lastSeen;
+                const now = data.server_time || (Date.now() / 1000);
+                const lastSeen = parseFloat(data.esp32_last_seen) || 0;
+                const diff = now - lastSeen;
 
-            const card    = document.getElementById('esp32-card');
-            const dot     = document.getElementById('esp32-dot');
-            const anim    = document.getElementById('esp32-ping-anim');
-            const text    = document.getElementById('esp32-text');
-            const iconBox = document.getElementById('esp32-icon-box');
-            const seenTxt = document.getElementById('esp32-last-seen-text');
+                const card = document.getElementById('esp32-card');
+                const dot = document.getElementById('esp32-dot');
+                const anim = document.getElementById('esp32-ping-anim');
+                const text = document.getElementById('esp32-text');
+                const iconBox = document.getElementById('esp32-icon-box');
+                const seenTxt = document.getElementById('esp32-last-seen-text');
 
-            const online = diff <= OFFLINE_THRESHOLD && lastSeen > 0;
-            if (online) {
-                offlineMissCount = 0;
-                card.style.background    = 'linear-gradient(135deg,#064e3b 0%,#065f46 100%)';
-                dot.style.background     = '#4ade80';
-                anim.style.display       = 'block';
-                anim.style.background    = '#4ade80';
-                text.textContent         = 'LINK ACTIVE';
-                iconBox.style.background = 'rgba(74,222,128,.2)';
-                seenTxt.textContent      = diff < 3 ? 'Just now' : Math.floor(diff) + 's ago';
-            } else {
-                offlineMissCount++;
-                if (offlineMissCount >= OFFLINE_TRIGGER) {
-                    card.style.background    = 'linear-gradient(135deg,#1c1917 0%,#292524 100%)';
-                    dot.style.background     = '#f87171';
-                    anim.style.display       = 'none';
-                    text.textContent         = 'OFFLINE';
-                    iconBox.style.background = 'rgba(248,113,113,.15)';
-                    seenTxt.textContent      = lastSeen > 0 ? Math.floor(diff) + 's ago' : 'Never seen';
-                }
-            }
-        })
-        .catch(e => console.error('Poll error:', e));
-}
-setInterval(pollSystem, 2000);
-pollSystem();
-
-// ── Stats + Charts ───────────────────────────────────────
-let attendanceChart = null;
-let proxyChart      = null;
-
-function buildRing(pct) {
-    const circ   = 2 * Math.PI * 22;
-    const offset = circ - (pct / 100) * circ;
-    document.getElementById('ring-circle').style.strokeDashoffset = offset;
-    document.getElementById('ring-val').textContent = pct + '%';
-}
-
-function loadStats() {
-    fetch('/api/dashboard/stats')
-        .then(r => r.json())
-        .then(d => {
-            // Stat tiles
-            document.getElementById('stat-today').textContent       = d.attendance_today;
-            document.getElementById('stat-rate').textContent        = d.attendance_rate + '%';
-            document.getElementById('stat-blacklisted').textContent = d.blacklisted_today;
-            buildRing(d.attendance_rate);
-
-            // Fraud rate = total violations / total entries today
-            const totalViolations = (d.fp_proxies_today || 0) + (d.voice_proxies_today || 0);
-            const fraudRate = d.attendance_today > 0
-                ? Math.round((totalViolations / d.attendance_today) * 100)
-                : 0;
-            document.getElementById('stat-fraud-rate').textContent = fraudRate + '%';
-            document.getElementById('stat-fraud-sub').textContent  =
-                `${totalViolations} violation${totalViolations !== 1 ? 's' : ''} vs ${d.attendance_today} entries`;
-
-            // ID Violations card
-            document.getElementById('fp-proxy-count').textContent = d.fp_proxies_today;
-            const fpPct = d.attendance_today > 0
-                ? Math.min((d.fp_proxies_today / d.attendance_today) * 100, 100) : 0;
-            document.getElementById('fp-bar').style.width = fpPct + '%';
-            const fpRow = document.getElementById('fp-status-row');
-            if (d.fp_proxies_today > 0) {
-                fpRow.style.color = 'var(--danger)';
-                fpRow.innerHTML = `<div class="status-dot" style="background:var(--danger);"></div><span>${d.fp_proxies_today} Alert${d.fp_proxies_today > 1 ? 's' : ''} — Security Notified</span>`;
-            } else {
-                fpRow.style.color = 'var(--success)';
-                fpRow.innerHTML = `<div class="status-dot" style="background:var(--success);"></div><span>System Nominal</span>`;
-            }
-
-            // Voice Impersonation card
-            document.getElementById('voice-proxy-count').textContent = d.voice_proxies_today;
-            document.getElementById('voice-clear-rate').textContent  = d.voice_clear_rate + '%';
-            const vPct = d.voice_checks_today > 0
-                ? Math.min((d.voice_proxies_today / d.voice_checks_today) * 100, 100) : 0;
-            document.getElementById('voice-bar').style.width = vPct + '%';
-            const vRow = document.getElementById('voice-status-row');
-            if (d.voice_proxies_today > 0) {
-                vRow.style.color = 'var(--danger)';
-                vRow.innerHTML = `<div class="status-dot" style="background:var(--danger);"></div><span>${d.voice_proxies_today} Flag${d.voice_proxies_today > 1 ? 's' : ''} Detected</span>`;
-            } else {
-                vRow.style.color = 'var(--success)';
-                vRow.innerHTML = `<div class="status-dot" style="background:var(--success);"></div><span>All Voices Verified</span>`;
-            }
-
-            // Attendance bar chart
-            const attCtx = document.getElementById('attendanceChart').getContext('2d');
-            const grad   = attCtx.createLinearGradient(0, 0, 0, 175);
-            grad.addColorStop(0, 'rgba(79,70,229,.35)');
-            grad.addColorStop(1, 'rgba(79,70,229,.02)');
-            if (attendanceChart) attendanceChart.destroy();
-            attendanceChart = new Chart(attCtx, {
-                type: 'bar',
-                data: {
-                    labels: d.labels,
-                    datasets: [{
-                        label: 'Entries',
-                        data: d.attendance_counts,
-                        backgroundColor: grad,
-                        borderColor: 'rgba(79,70,229,.8)',
-                        borderWidth: 2,
-                        borderRadius: 6,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false },
-                               tooltip: { callbacks: { label: ctx => ` ${ctx.raw} entries` } } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
-                        y: { grid: { color: 'rgba(0,0,0,.04)' },
-                             ticks: { font: { size: 10 }, color: '#94a3b8', precision: 0 },
-                             beginAtZero: true }
+                const online = diff <= OFFLINE_THRESHOLD && lastSeen > 0;
+                if (online) {
+                    offlineMissCount = 0;
+                    card.style.background = 'linear-gradient(135deg,#064e3b 0%,#065f46 100%)';
+                    dot.style.background = '#4ade80';
+                    anim.style.display = 'block';
+                    anim.style.background = '#4ade80';
+                    text.textContent = 'LINK ACTIVE';
+                    iconBox.style.background = 'rgba(74,222,128,.2)';
+                    seenTxt.textContent = diff < 3 ? 'Just now' : Math.floor(diff) + 's ago';
+                } else {
+                    offlineMissCount++;
+                    if (offlineMissCount >= OFFLINE_TRIGGER) {
+                        card.style.background = 'linear-gradient(135deg,#1c1917 0%,#292524 100%)';
+                        dot.style.background = '#f87171';
+                        anim.style.display = 'none';
+                        text.textContent = 'OFFLINE';
+                        iconBox.style.background = 'rgba(248,113,113,.15)';
+                        seenTxt.textContent = lastSeen > 0 ? Math.floor(diff) + 's ago' : 'Never seen';
                     }
                 }
-            });
-
-            // Proxy doughnut
-            const totalProxy = d.proxy_counts.reduce((a, b) => a + b, 0);
-            document.getElementById('proxy-total-label').textContent = totalProxy;
-            const dCtx = document.getElementById('proxyChart').getContext('2d');
-            if (proxyChart) proxyChart.destroy();
-            proxyChart = new Chart(dCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['ID Violations', 'Voice Flags'],
-                    datasets: [{
-                        data: [d.fp_proxies_today || 0, d.voice_proxies_today || 0],
-                        backgroundColor: ['#d97706', '#7c3aed'],
-                        borderWidth: 0,
-                        hoverOffset: 6
-                    }]
-                },
-                options: {
-                    cutout: '68%', responsive: true, maintainAspectRatio: true,
-                    plugins: { legend: { display: false },
-                               tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } } }
-                }
-            });
-        })
-        .catch(e => console.error('Stats error:', e));
-}
-loadStats();
-setInterval(loadStats, 30000);
-
-// ── Toast ────────────────────────────────────────────────
-function showToast(message, type) {
-    const toast = document.getElementById('toast-notification');
-    const icon  = document.getElementById('toast-icon');
-    const msg   = document.getElementById('toast-message');
-    msg.textContent = message;
-    toast.style.background = type === 'success' ? '#059669' : '#dc2626';
-    icon.className = type === 'success' ? 'fa-solid fa-check-circle' : 'fa-solid fa-circle-xmark';
-    toast.style.display = 'flex';
-    toast.style.opacity = '1';
-    toast.style.pointerEvents = 'auto';
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.pointerEvents = 'none';
-        setTimeout(() => toast.style.display = 'none', 400);
-    }, 4000);
-}
-
-// ── SMS Broadcast ────────────────────────────────────────
-const noticeInput   = document.getElementById('notice-text');
-const charCountEl   = document.getElementById('char-count');
-const smsPartsEl    = document.getElementById('sms-parts');
-const smsCostEl     = document.getElementById('sms-cost');
-const COST_PER_PART = 0.35;
-const totalStudents = parseInt("{{ total|default(0) }}", 10);
-
-noticeInput.addEventListener('input', function() {
-    const len  = this.value.length;
-    charCountEl.textContent = len;
-    const parts = len === 0 ? 1 : Math.ceil(len / 70);
-    smsPartsEl.textContent = parts;
-    smsCostEl.textContent  = (parts * COST_PER_PART * totalStudents).toFixed(2) + ' ৳';
-});
-
-function sendCustomNotice() {
-    const message = noticeInput.value.trim();
-    if (!message) { showToast('Cannot send an empty message', 'error'); return; }
-    if (!confirm(`Broadcast to ${totalStudents} recipients? Est. cost: ${smsCostEl.textContent}`)) return;
-    const btn      = document.getElementById('btn-send-notice');
-    const origHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending…';
-    btn.style.opacity = '.7';
-    fetch('/action/send_custom_notice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ message })
-    })
-        .then(r => r.json())
-        .then(d => {
-            showToast(d.message, d.success ? 'success' : 'error');
-            if (d.success) { noticeInput.value = ''; noticeInput.dispatchEvent(new Event('input')); }
-        })
-        .catch(() => showToast('Network error', 'error'))
-        .finally(() => { btn.innerHTML = origHTML; btn.disabled = false; btn.style.opacity = '1'; });
-}
-// ── Neural Mesh for Device Showcase ──────────────────────
-const devCanvas = document.getElementById('device-neural-mesh');
-const devCard = document.getElementById('esp32-card');
-if (devCanvas && devCard) {
-    const ctxDev = devCanvas.getContext('2d');
-    let devParticles = [];
-    let devMouse = { x: null, y: null };
-
-    function initDevMesh() {
-        devCanvas.width = devCard.offsetWidth;
-        devCanvas.height = devCard.offsetHeight;
-        devParticles = [];
-        // Dramatically reduced particle count for better performance
-        for (let i = 0; i < 30; i++) { 
-            devParticles.push({
-                x: Math.random() * devCanvas.width,
-                y: Math.random() * devCanvas.height,
-                vx: (Math.random() - 0.5) * 0.5,
-                vy: (Math.random() - 0.5) * 0.5,
-                radius: Math.random() * 1.5 + 0.8
-            });
-        }
+            })
+            .catch(e => console.error('Poll error:', e));
     }
-    
-    setTimeout(initDevMesh, 100);
-    window.addEventListener('resize', initDevMesh);
+    setInterval(pollSystem, 2000);
+    pollSystem();
 
-    devCard.addEventListener('mousemove', (e) => {
-        const rect = devCanvas.getBoundingClientRect();
-        devMouse.x = e.clientX - rect.left;
-        devMouse.y = e.clientY - rect.top;
+    // ── Stats + Charts ───────────────────────────────────────
+    let attendanceChart = null;
+    let proxyChart = null;
+
+    function buildRing(pct) {
+        const circ = 2 * Math.PI * 22;
+        const offset = circ - (pct / 100) * circ;
+        document.getElementById('ring-circle').style.strokeDashoffset = offset;
+        document.getElementById('ring-val').textContent = pct + '%';
+    }
+
+    function loadStats() {
+        fetch('/api/dashboard/stats')
+            .then(r => r.json())
+            .then(d => {
+                // Stat tiles
+                document.getElementById('stat-today').textContent = d.attendance_today;
+                document.getElementById('stat-rate').textContent = d.attendance_rate + '%';
+                document.getElementById('stat-blacklisted').textContent = d.blacklisted_today;
+                buildRing(d.attendance_rate);
+
+                // Fraud rate = total violations / total entries today
+                const totalViolations = (d.fp_proxies_today || 0) + (d.voice_proxies_today || 0);
+                const fraudRate = d.attendance_today > 0
+                    ? Math.round((totalViolations / d.attendance_today) * 100)
+                    : 0;
+                document.getElementById('stat-fraud-rate').textContent = fraudRate + '%';
+                document.getElementById('stat-fraud-sub').textContent =
+                    `${totalViolations} violation${totalViolations !== 1 ? 's' : ''} vs ${d.attendance_today} entries`;
+
+                // ID Violations card
+                document.getElementById('fp-proxy-count').textContent = d.fp_proxies_today;
+                const fpPct = d.attendance_today > 0
+                    ? Math.min((d.fp_proxies_today / d.attendance_today) * 100, 100) : 0;
+                document.getElementById('fp-bar').style.width = fpPct + '%';
+                const fpRow = document.getElementById('fp-status-row');
+                if (d.fp_proxies_today > 0) {
+                    fpRow.style.color = 'var(--danger)';
+                    fpRow.innerHTML = `<div class="status-dot" style="background:var(--danger);"></div><span>${d.fp_proxies_today} Alert${d.fp_proxies_today > 1 ? 's' : ''} — Security Notified</span>`;
+                } else {
+                    fpRow.style.color = 'var(--success)';
+                    fpRow.innerHTML = `<div class="status-dot" style="background:var(--success);"></div><span>System Nominal</span>`;
+                }
+
+                // Voice Impersonation card
+                document.getElementById('voice-proxy-count').textContent = d.voice_proxies_today;
+                document.getElementById('voice-clear-rate').textContent = d.voice_clear_rate + '%';
+                const vPct = d.voice_checks_today > 0
+                    ? Math.min((d.voice_proxies_today / d.voice_checks_today) * 100, 100) : 0;
+                document.getElementById('voice-bar').style.width = vPct + '%';
+                const vRow = document.getElementById('voice-status-row');
+                if (d.voice_proxies_today > 0) {
+                    vRow.style.color = 'var(--danger)';
+                    vRow.innerHTML = `<div class="status-dot" style="background:var(--danger);"></div><span>${d.voice_proxies_today} Flag${d.voice_proxies_today > 1 ? 's' : ''} Detected</span>`;
+                } else {
+                    vRow.style.color = 'var(--success)';
+                    vRow.innerHTML = `<div class="status-dot" style="background:var(--success);"></div><span>All Voices Verified</span>`;
+                }
+
+                // Attendance bar chart
+                const attCtx = document.getElementById('attendanceChart').getContext('2d');
+                const grad = attCtx.createLinearGradient(0, 0, 0, 175);
+                grad.addColorStop(0, 'rgba(79,70,229,.35)');
+                grad.addColorStop(1, 'rgba(79,70,229,.02)');
+                if (attendanceChart) attendanceChart.destroy();
+                attendanceChart = new Chart(attCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: d.labels,
+                        datasets: [{
+                            label: 'Entries',
+                            data: d.attendance_counts,
+                            backgroundColor: grad,
+                            borderColor: 'rgba(79,70,229,.8)',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: ctx => ` ${ctx.raw} entries` } }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8' } },
+                            y: {
+                                grid: { color: 'rgba(0,0,0,.04)' },
+                                ticks: { font: { size: 10 }, color: '#94a3b8', precision: 0 },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Proxy doughnut
+                const totalProxy = d.proxy_counts.reduce((a, b) => a + b, 0);
+                document.getElementById('proxy-total-label').textContent = totalProxy;
+                const dCtx = document.getElementById('proxyChart').getContext('2d');
+                if (proxyChart) proxyChart.destroy();
+                proxyChart = new Chart(dCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['ID Violations', 'Voice Flags'],
+                        datasets: [{
+                            data: [d.fp_proxies_today || 0, d.voice_proxies_today || 0],
+                            backgroundColor: ['#d97706', '#7c3aed'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        cutout: '68%', responsive: true, maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } }
+                        }
+                    }
+                });
+            })
+            .catch(e => console.error('Stats error:', e));
+    }
+    loadStats();
+    setInterval(loadStats, 30000);
+
+    // ── Toast ────────────────────────────────────────────────
+    function showToast(message, type) {
+        const toast = document.getElementById('toast-notification');
+        const icon = document.getElementById('toast-icon');
+        const msg = document.getElementById('toast-message');
+        msg.textContent = message;
+        toast.style.background = type === 'success' ? '#059669' : '#dc2626';
+        icon.className = type === 'success' ? 'fa-solid fa-check-circle' : 'fa-solid fa-circle-xmark';
+        toast.style.display = 'flex';
+        toast.style.opacity = '1';
+        toast.style.pointerEvents = 'auto';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.pointerEvents = 'none';
+            setTimeout(() => toast.style.display = 'none', 400);
+        }, 4000);
+    }
+
+    // ── SMS Broadcast ────────────────────────────────────────
+    const noticeInput = document.getElementById('notice-text');
+    const charCountEl = document.getElementById('char-count');
+    const smsPartsEl = document.getElementById('sms-parts');
+    const smsCostEl = document.getElementById('sms-cost');
+    const COST_PER_PART = 0.35;
+    const totalStudents = parseInt("{{ total|default(0) }}", 10);
+
+    noticeInput.addEventListener('input', function () {
+        const len = this.value.length;
+        charCountEl.textContent = len;
+        const parts = len === 0 ? 1 : Math.ceil(len / 70);
+        smsPartsEl.textContent = parts;
+        smsCostEl.textContent = (parts * COST_PER_PART * totalStudents).toFixed(2) + ' ৳';
     });
-    devCard.addEventListener('mouseleave', () => {
-        devMouse.x = null; devMouse.y = null;
-    });
 
-    function animateDevMesh() {
-        ctxDev.clearRect(0, 0, devCanvas.width, devCanvas.height);
+    function sendCustomNotice() {
+        const message = noticeInput.value.trim();
+        if (!message) { showToast('Cannot send an empty message', 'error'); return; }
+        if (!confirm(`Broadcast to ${totalStudents} recipients? Est. cost: ${smsCostEl.textContent}`)) return;
+        const btn = document.getElementById('btn-send-notice');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending…';
+        btn.style.opacity = '.7';
+        fetch('/action/send_custom_notice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ message })
+        })
+            .then(r => r.json())
+            .then(d => {
+                showToast(d.message, d.success ? 'success' : 'error');
+                if (d.success) { noticeInput.value = ''; noticeInput.dispatchEvent(new Event('input')); }
+            })
+            .catch(() => showToast('Network error', 'error'))
+            .finally(() => { btn.innerHTML = origHTML; btn.disabled = false; btn.style.opacity = '1'; });
+    }
+    // ── Neural Mesh for Device Showcase ──────────────────────
+    const devCanvas = document.getElementById('device-neural-mesh');
+    const devCard = document.getElementById('esp32-card');
+    if (devCanvas && devCard) {
+        const ctxDev = devCanvas.getContext('2d');
+        let devParticles = [];
+        let devMouse = { x: null, y: null };
 
-        for (let i = 0; i < devParticles.length; i++) {
-            let p = devParticles[i];
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < 0 || p.x > devCanvas.width) p.vx *= -1;
-            if (p.y < 0 || p.y > devCanvas.height) p.vy *= -1;
-            
-            ctxDev.beginPath();
-            ctxDev.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            ctxDev.fillStyle = 'rgba(56, 189, 248, 0.7)'; 
-            ctxDev.fill();
+        function initDevMesh() {
+            devCanvas.width = devCard.offsetWidth;
+            devCanvas.height = devCard.offsetHeight;
+            devParticles = [];
+            // Dramatically reduced particle count for better performance
+            for (let i = 0; i < 30; i++) {
+                devParticles.push({
+                    x: Math.random() * devCanvas.width,
+                    y: Math.random() * devCanvas.height,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    radius: Math.random() * 1.5 + 0.8
+                });
+            }
+        }
 
-            if (devMouse.x) {
-                let dx = devMouse.x - p.x;
-                let dy = devMouse.y - p.y;
-                let distSq = dx*dx + dy*dy;
-                if (distSq < 14400) { // 120 * 120
-                    let dist = Math.sqrt(distSq);
-                    ctxDev.beginPath();
-                    ctxDev.moveTo(p.x, p.y);
-                    ctxDev.lineTo(devMouse.x, devMouse.y);
-                    ctxDev.strokeStyle = `rgba(56, 189, 248, ${0.6 - (dist/120)*0.6})`; 
-                    ctxDev.lineWidth = 1.5;
-                    ctxDev.stroke();
+        setTimeout(initDevMesh, 100);
+        window.addEventListener('resize', initDevMesh);
+
+        devCard.addEventListener('mousemove', (e) => {
+            const rect = devCanvas.getBoundingClientRect();
+            devMouse.x = e.clientX - rect.left;
+            devMouse.y = e.clientY - rect.top;
+        });
+        devCard.addEventListener('mouseleave', () => {
+            devMouse.x = null; devMouse.y = null;
+        });
+
+        function animateDevMesh() {
+            ctxDev.clearRect(0, 0, devCanvas.width, devCanvas.height);
+
+            for (let i = 0; i < devParticles.length; i++) {
+                let p = devParticles[i];
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0 || p.x > devCanvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > devCanvas.height) p.vy *= -1;
+
+                ctxDev.beginPath();
+                ctxDev.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctxDev.fillStyle = 'rgba(56, 189, 248, 0.7)';
+                ctxDev.fill();
+
+                if (devMouse.x) {
+                    let dx = devMouse.x - p.x;
+                    let dy = devMouse.y - p.y;
+                    let distSq = dx * dx + dy * dy;
+                    if (distSq < 14400) { // 120 * 120
+                        let dist = Math.sqrt(distSq);
+                        ctxDev.beginPath();
+                        ctxDev.moveTo(p.x, p.y);
+                        ctxDev.lineTo(devMouse.x, devMouse.y);
+                        ctxDev.strokeStyle = `rgba(56, 189, 248, ${0.6 - (dist / 120) * 0.6})`;
+                        ctxDev.lineWidth = 1.5;
+                        ctxDev.stroke();
+                    }
+                }
+
+                for (let j = i + 1; j < devParticles.length; j++) {
+                    let p2 = devParticles[j];
+                    let dx = p.x - p2.x; let dy = p.y - p2.y;
+                    let distSq = dx * dx + dy * dy;
+                    if (distSq < 6400) { // 80 * 80
+                        let dist = Math.sqrt(distSq);
+                        ctxDev.beginPath();
+                        ctxDev.moveTo(p.x, p.y);
+                        ctxDev.lineTo(p2.x, p2.y);
+                        ctxDev.strokeStyle = `rgba(56, 189, 248, ${0.35 - (dist / 80) * 0.35})`;
+                        ctxDev.lineWidth = 1.0;
+                        ctxDev.stroke();
+                    }
                 }
             }
 
-            for (let j = i + 1; j < devParticles.length; j++) {
-                let p2 = devParticles[j];
-                let dx = p.x - p2.x; let dy = p.y - p2.y;
-                let distSq = dx*dx + dy*dy;
-                if (distSq < 6400) { // 80 * 80
-                    let dist = Math.sqrt(distSq);
-                    ctxDev.beginPath();
-                    ctxDev.moveTo(p.x, p.y);
-                    ctxDev.lineTo(p2.x, p2.y);
-                    ctxDev.strokeStyle = `rgba(56, 189, 248, ${0.35 - (dist/80)*0.35})`;
-                    ctxDev.lineWidth = 1.0;
-                    ctxDev.stroke();
-                }
-            }
+            requestAnimationFrame(animateDevMesh);
         }
-        
-        requestAnimationFrame(animateDevMesh);
+        animateDevMesh();
     }
-    animateDevMesh();
-}
 </script>
 {% endblock %}

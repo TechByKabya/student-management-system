@@ -1,87 +1,210 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    <div class="mb-8">
-        <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Voice Recognition Settings & Testing</h2>
-        <p class="text-gray-500 mt-2 text-lg">Configure your speech-to-text engine and test accuracy with audio files.</p>
+<style>
+    :root {
+        --brand: #4f46e5;
+        --brand-glow: rgba(79,70,229,.18);
+        --red: #ef4444;
+        --green: #10b981;
+        --amber: #f59e0b;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --faint: #94a3b8;
+        --radius: 16px;
+        --shadow: 0 2px 8px rgba(0,0,0,.07), 0 8px 32px rgba(0,0,0,.07);
+    }
+    .vt-page { max-width: 900px; margin: 0 auto; }
+    .vt-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .vt-card-header { padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface-2); display: flex; align-items: center; gap: .75rem; }
+    .vt-card-header .icon { font-size: 1rem; color: var(--brand); }
+    .vt-card-header h3 { font-size: .95rem; font-weight: 700; color: var(--text); margin: 0; }
+    .vt-card-body { padding: 1.5rem; }
+    .rec-zone { border: 2px dashed var(--border); border-radius: 14px; padding: 2rem 1.5rem; text-align: center; transition: border-color .2s, background .2s; background: var(--surface-2); }
+    .rec-zone.active { border-color: var(--red); background: #fff5f5; }
+    .rec-zone.done { border-color: var(--green); background: #f0fdf4; }
+    .rec-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 1rem; transition: all .3s; }
+    .rec-icon.idle { background: #f1f5f9; color: var(--muted); }
+    .rec-icon.recording { background: var(--red); color: #fff; animation: pulse-rec .8s ease-in-out infinite alternate; }
+    .rec-icon.done { background: #dcfce7; color: var(--green); }
+    @keyframes pulse-rec { from { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,.5); } to { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(239,68,68,0); } }
+    .rec-timer { font-size: 2rem; font-weight: 900; letter-spacing: .05em; color: var(--red); font-variant-numeric: tabular-nums; display: none; }
+    .rec-timer.show { display: block; }
+    .waveform { display: flex; align-items: center; justify-content: center; gap: 3px; height: 32px; margin: .5rem 0; }
+    .waveform .bar { width: 4px; border-radius: 2px; background: var(--red); animation: wave 0.6s ease-in-out infinite alternate; }
+    .waveform .bar:nth-child(2){animation-delay:.1s}.waveform .bar:nth-child(3){animation-delay:.2s}.waveform .bar:nth-child(4){animation-delay:.3s}.waveform .bar:nth-child(5){animation-delay:.15s}.waveform .bar:nth-child(6){animation-delay:.25s}.waveform .bar:nth-child(7){animation-delay:.05s}
+    @keyframes wave { from { height: 6px; } to { height: 28px; } }
+    .save-form { display: none; margin-top: 1.2rem; gap: .75rem; align-items: center; }
+    .save-form.show { display: flex; flex-wrap: wrap; }
+    .save-form input { flex: 1; min-width: 160px; border: 1.5px solid var(--border); border-radius: 10px; padding: .55rem .9rem; font-size: .88rem; outline: none; transition: border-color .2s; }
+    .save-form input:focus { border-color: var(--brand); }
+    .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem 1.1rem; border-radius: 10px; font-size: .82rem; font-weight: 700; cursor: pointer; border: none; transition: all .15s; }
+    .btn-primary { background: var(--brand); color: #fff; } .btn-primary:hover { background: #4338ca; } .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-red { background: var(--red); color: #fff; } .btn-red:hover { background: #dc2626; }
+    .btn-ghost { background: var(--surface-2); border: 1.5px solid var(--border); color: var(--muted); } .btn-ghost:hover { background: var(--border); color: var(--text); }
+    .btn-green { background: var(--green); color: #fff; } .btn-green:hover { background: #059669; }
+    .btn-sm { padding: .35rem .7rem; font-size: .75rem; border-radius: 8px; }
+    .terminal { border-radius: 12px; background: #0f172a; overflow: hidden; border: 1px solid #1e293b; margin-top: 1.5rem; display: none; }
+    .terminal.show { display: block; animation: fade-in .3s; }
+    @keyframes fade-in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    .terminal-bar { display: flex; align-items: center; justify-content: space-between; padding: .6rem 1rem; background: #1e293b; border-bottom: 1px solid #334155; }
+    .terminal-dots { display: flex; gap: 6px; }
+    .terminal-dots span { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-body { padding: 1.2rem 1.4rem; font-family: 'JetBrains Mono', 'Fira Mono', monospace; font-size: .82rem; }
+    .t-label { color: #94a3b8; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; }
+    .t-transcript { color: #f1f5f9; font-size: 1.05rem; font-weight: 600; line-height: 1.6; margin: .5rem 0 1rem; }
+    .t-tag { display: inline-block; padding: .2rem .6rem; border-radius: 6px; font-size: .72rem; font-weight: 700; }
+    .t-tag.ok { background: #064e3b; color: #4ade80; } .t-tag.fail { background: #450a0a; color: #f87171; } .t-tag.warn { background: #451a03; color: #fb923c; }
+    .lib-item { display: flex; align-items: center; gap: 1rem; padding: .9rem 1rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); transition: box-shadow .15s; }
+    .lib-item:hover { box-shadow: 0 2px 12px var(--brand-glow); border-color: #c7d2fe; }
+    .lib-item + .lib-item { margin-top: .6rem; }
+    .lib-thumb { width: 42px; height: 42px; border-radius: 10px; background: #eef2ff; color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .lib-info { flex: 1; min-width: 0; }
+    .lib-name { font-size: .88rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lib-meta { font-size: .72rem; color: var(--faint); margin-top: .1rem; }
+    .lib-transcript { font-size: .78rem; color: var(--muted); margin-top: .25rem; font-style: italic; max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lib-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+    .audio-player { display: none; margin-top: .5rem; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--faint); }
+    .empty-state i { font-size: 2.5rem; margin-bottom: .75rem; display: block; }
+    .upload-zone { border: 2px dashed var(--border); border-radius: 14px; padding: 1.5rem; text-align: center; cursor: pointer; background: var(--surface-2); transition: all .2s; }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--brand); background: #eef2ff; }
+    .top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media(max-width:640px){ .top-grid { grid-template-columns: 1fr !important; } }
+</style>
+
+<div class="vt-page">
+    <div class="mb-6">
+        <h2 style="font-size:1.75rem;font-weight:900;color:var(--text);margin:0;">🎙️ Voice Testing Lab</h2>
+        <p style="color:var(--muted);margin:.3rem 0 0;font-size:.92rem;">Record, analyse, and manage voice samples for keyword spotting &amp; ASR testing. Works on desktop and mobile browsers.</p>
     </div>
 
-    <!-- Engine Settings -->
-    <div class="glass-panel p-8 rounded-2xl shadow-xl border border-gray-200 bg-white/70 mb-8">
-        <h3 class="text-xl font-bold text-gray-800 border-b border-gray-100 pb-4 mb-4">ASR Engine Configuration</h3>
-        
-        <div class="flex items-center gap-4 bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
-            <div class="flex-shrink-0 w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-2xl">
-                <i class="fa-solid fa-microchip"></i>
+    <div class="top-grid">
+        <!-- Live Recording -->
+        <div class="vt-card">
+            <div class="vt-card-header">
+                <i class="fa-solid fa-microphone icon"></i>
+                <h3>Live Recording</h3>
+                <span style="margin-left:auto;font-size:.7rem;background:#eef2ff;color:var(--brand);padding:.2rem .55rem;border-radius:20px;font-weight:700;">Browser &amp; Mobile</span>
             </div>
-            <div>
-                <h4 class="font-bold text-gray-900">MLX Whisper Medium</h4>
-                <p class="text-sm text-gray-600">Local Apple Silicon processing active.</p>
+            <div class="vt-card-body">
+                <div class="rec-zone" id="rec-zone">
+                    <div class="rec-icon idle" id="rec-icon"><i class="fa-solid fa-microphone" id="rec-icon-i"></i></div>
+                    <div class="rec-timer" id="rec-timer">00:00</div>
+                    <div class="waveform" id="waveform" style="display:none;">
+                        <div class="bar" style="height:10px"></div><div class="bar" style="height:18px"></div><div class="bar" style="height:24px"></div><div class="bar" style="height:14px"></div><div class="bar" style="height:28px"></div><div class="bar" style="height:16px"></div><div class="bar" style="height:20px"></div>
+                    </div>
+                    <p id="rec-status-text" style="color:var(--muted);font-size:.85rem;margin:.4rem 0 1rem;font-weight:600;">Tap to start recording</p>
+                    <div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;">
+                        <button class="btn btn-red" id="rec-btn" onclick="toggleRecord()"><i class="fa-solid fa-circle" style="font-size:.6rem;"></i> Start Recording</button>
+                        <button class="btn btn-ghost" id="quick-test-btn" style="display:none;" onclick="quickTest()"><i class="fa-solid fa-bolt"></i> Quick Test</button>
+                    </div>
+                </div>
+                <div id="rec-preview" style="display:none;margin-top:1rem;background:var(--surface-2);border-radius:10px;padding:.75rem;border:1px solid var(--border);">
+                    <p style="font-size:.72rem;font-weight:700;color:var(--muted);margin:0 0 .4rem;">PREVIEW</p>
+                    <audio id="rec-audio" controls style="width:100%;height:32px;border-radius:8px;"></audio>
+                </div>
+                <div class="save-form" id="save-form">
+                    <input type="text" id="rec-label" placeholder="Label (e.g. 'john_test_1')" maxlength="40">
+                    <button class="btn btn-green" onclick="saveRecording()"><i class="fa-solid fa-floppy-disk"></i> Save &amp; Analyse</button>
+                </div>
             </div>
-            <div class="ml-auto text-indigo-600">
-                <i class="fa-solid fa-circle-check text-2xl"></i>
+        </div>
+
+        <!-- Upload File -->
+        <div class="vt-card">
+            <div class="vt-card-header">
+                <i class="fa-solid fa-file-audio icon"></i>
+                <h3>Upload Audio File</h3>
+                <span style="margin-left:auto;font-size:.7rem;background:#f0fdf4;color:var(--green);padding:.2rem .55rem;border-radius:20px;font-weight:700;">WAV / MP3 / M4A</span>
+            </div>
+            <div class="vt-card-body">
+                <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleFileDrop(event)">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size:2rem;color:var(--faint);display:block;margin-bottom:.6rem;"></i>
+                    <p style="font-size:.85rem;font-weight:600;color:var(--muted);margin:0 0 .4rem;">Drop audio file here</p>
+                    <p style="font-size:.75rem;color:var(--faint);margin:0;">or click to browse</p>
+                    <input type="file" id="file-input" accept="audio/*" style="display:none" onchange="handleFileSelect(event)">
+                </div>
+                <div id="file-info" style="display:none;margin-top:1rem;background:var(--surface-2);border-radius:10px;padding:.75rem;border:1px solid var(--border);">
+                    <p id="file-name" style="font-size:.82rem;font-weight:700;color:var(--text);margin:0 0 .5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
+                    <audio id="file-audio" controls style="width:100%;height:32px;border-radius:8px;"></audio>
+                    <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap;">
+                        <input type="text" id="file-label" placeholder="Label (optional)" maxlength="40" style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:8px;padding:.45rem .75rem;font-size:.82rem;outline:none;">
+                        <button class="btn btn-primary" onclick="saveFile()"><i class="fa-solid fa-floppy-disk"></i> Save &amp; Analyse</button>
+                        <button class="btn btn-ghost btn-sm" onclick="quickTestFile()"><i class="fa-solid fa-bolt"></i> Quick Test</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Testing Interface -->
-    <div class="glass-panel p-8 rounded-2xl shadow-xl border border-gray-200 bg-white/70">
-        <h3 class="text-xl font-bold text-gray-800 border-b border-gray-100 pb-4 mb-6">Test Transcription</h3>
-        <p class="text-sm text-gray-600 mb-6">Upload a `.wav` file or record directly from your microphone to test the accuracy of the currently active engine (<b>MLX Whisper Medium</b>).</p>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <!-- File Upload -->
-            <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 bg-gray-50 transition-all hover:bg-indigo-50" id="drop-zone">
-                <i class="fa-solid fa-file-audio text-3xl text-gray-400 mb-3"></i>
-                <p class="text-sm text-gray-500 mb-2 font-medium">Upload Audio File</p>
-                <input type="file" id="audio-file" accept="audio/wav,audio/mp3,audio/m4a" class="hidden">
-                <button onclick="document.getElementById('audio-file').click()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-xs font-bold text-gray-700 hover:bg-gray-100">
-                    Browse Files
-                </button>
-                <p id="selected-file-name" class="mt-3 text-xs font-bold text-indigo-600 hidden"></p>
-                <button id="test-btn" onclick="testTranscription()" class="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-indigo-700 transition-all hidden">
-                    <i class="fa-solid fa-upload mr-1"></i> Transcribe File
-                </button>
-            </div>
 
-            <!-- Live Mic Record -->
-            <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 bg-gray-50 transition-all hover:bg-red-50" id="mic-zone">
-                <i class="fa-solid fa-microphone text-3xl text-gray-400 mb-3" id="mic-icon"></i>
-                <p class="text-sm text-gray-500 mb-2 font-medium" id="mic-status">Live Microphone</p>
-                <button id="record-btn" class="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg shadow-sm text-xs font-bold hover:bg-red-50 transition-colors">
-                    <i class="fa-solid fa-circle text-[10px] mr-1"></i> Start Recording
-                </button>
-                <div id="recording-indicator" class="hidden mt-3 flex items-center gap-2">
-                    <span class="flex h-3 w-3 relative">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                    <span class="text-xs font-bold text-red-600 timer-text">00:00</span>
+    <!-- ESP32 Mic Recording -->
+    <div class="vt-card" style="margin-top:1.5rem;">
+        <div class="vt-card-header">
+            <i class="fa-solid fa-microchip icon"></i>
+            <h3>Record from ESP32 Mic</h3>
+            <span id="esp32-status-badge" style="margin-left:auto;font-size:.7rem;background:#f1f5f9;color:var(--muted);padding:.2rem .55rem;border-radius:20px;font-weight:700;">Device Mic (INMP441)</span>
+        </div>
+        <div class="vt-card-body">
+            <div style="display:flex;align-items:flex-start;gap:1.2rem;flex-wrap:wrap;">
+                <div style="flex:1;min-width:220px;">
+                    <p style="font-size:.85rem;color:var(--muted);margin:0 0 1rem;">Triggers the <b>INMP441 microphone</b> on your physical ESP32 device to record a 9-second audio clip and send it directly to the server for analysis.</p>
+                    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+                        <button class="btn btn-primary" id="esp32-rec-btn" onclick="triggerEsp32Record()">
+                            <i class="fa-solid fa-microchip"></i> Record from ESP32
+                        </button>
+                        <span id="esp32-rec-status" style="font-size:.8rem;color:var(--muted);"></span>
+                    </div>
+                    <div id="esp32-progress" style="display:none;margin-top:1rem;">
+                        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;overflow:hidden;height:8px;">
+                            <div id="esp32-bar" style="height:100%;background:linear-gradient(90deg,var(--brand),#818cf8);width:0%;transition:width .5s;border-radius:10px;"></div>
+                        </div>
+                        <p id="esp32-bar-label" style="font-size:.72rem;color:var(--muted);margin:.4rem 0 0;">Waiting for ESP32...</p>
+                    </div>
+                </div>
+                <div style="flex-shrink:0;background:#0f172a;border-radius:12px;padding:.8rem 1rem;min-width:200px;font-family:monospace;font-size:.72rem;color:#94a3b8;">
+                    <div style="color:#4ade80;margin-bottom:.4rem;">▶ HOW IT WORKS</div>
+                    <div>1. Click button above</div>
+                    <div>2. ESP32 shows [TEST RECORD]</div>
+                    <div>3. Beep → speak into device mic</div>
+                    <div>4. ~9s recording + upload</div>
+                    <div>5. Result appears in terminal</div>
+                    <div style="margin-top:.5rem;color:#f59e0b;">⚠ ESP32 must be online</div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Terminal Result Box -->
-        <div id="result-box" class="hidden rounded-xl bg-gray-900 p-1 shadow-2xl overflow-hidden border border-gray-700">
-            <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-800/50">
-                <div class="flex gap-2">
-                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                    <div class="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
-                </div>
-                <div class="text-xs font-mono text-gray-400">AI Detection Output</div>
-                <div class="w-12"></div> <!-- spacer -->
-            </div>
-            <div class="p-5 font-mono text-sm">
-                <div class="flex items-center gap-3 mb-2">
-                    <i id="result-icon" class="fa-solid fa-circle-notch fa-spin text-indigo-400"></i>
-                    <span class="font-bold text-emerald-400" id="result-title">Processing...</span>
-                </div>
-                <div class="text-gray-300 whitespace-pre-wrap leading-relaxed mt-4 pl-4 border-l-2 border-gray-700" id="result-text">
-                    > Waiting for engine response...
-                </div>
-            </div>
+    <!-- Terminal Output -->
+    <div class="terminal" id="terminal">
+        <div class="terminal-bar">
+            <div class="terminal-dots"><span style="background:#ef4444;"></span><span style="background:#f59e0b;"></span><span style="background:#10b981;"></span></div>
+            <span style="font-size:.72rem;color:#94a3b8;font-family:monospace;">ASR Engine — Detection Output</span>
+            <span></span>
+        </div>
+        <div class="terminal-body">
+            <div class="t-label">STATUS</div>
+            <div id="t-status" style="color:#fb923c;font-weight:700;">⏳ Processing...</div>
+            <div class="t-label" style="margin-top:1rem;">DETECTED TEXT</div>
+            <div class="t-transcript" id="t-transcript">—</div>
+            <div id="t-tags" style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;"></div>
+        </div>
+    </div>
+
+    <!-- Library -->
+    <div class="vt-card" style="margin-top:1.5rem;">
+        <div class="vt-card-header">
+            <i class="fa-solid fa-folder-open icon"></i>
+            <h3>Saved Recordings</h3>
+            <span id="lib-count" style="margin-left:auto;font-size:.7rem;background:#eef2ff;color:var(--brand);padding:.2rem .55rem;border-radius:20px;font-weight:700;">0 files</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadLibrary()" style="margin-left:.5rem;"><i class="fa-solid fa-rotate"></i> Refresh</button>
+        </div>
+        <div class="vt-card-body" id="library-body">
+            <div class="empty-state"><i class="fa-regular fa-folder-open"></i><p style="font-size:.88rem;font-weight:600;">No recordings yet</p><p style="font-size:.78rem;margin:.2rem 0 0;">Record or upload above to get started.</p></div>
         </div>
     </div>
 </div>
@@ -89,156 +212,323 @@
 
 {% block scripts %}
 <script>
-    const fileInput = document.getElementById('audio-file');
-    const fileName = document.getElementById('selected-file-name');
-    const testBtn = document.getElementById('test-btn');
-    const recordBtn = document.getElementById('record-btn');
-    const resultBox = document.getElementById('result-box');
-    const resultTitle = document.getElementById('result-title');
-    const resultIcon = document.getElementById('result-icon');
-    const resultText = document.getElementById('result-text');
-    const recordingIndicator = document.getElementById('recording-indicator');
-    const micIcon = document.getElementById('mic-icon');
-    const timerText = document.querySelector('.timer-text');
-    
-    let mediaRecorder;
-    let audioChunks = [];
-    let isRecording = false;
-    let timerInterval;
-    let seconds = 0;
+let mediaRecorder = null, audioChunks = [], isRecording = false;
+let timerInterval = null, elapsedSec = 0, lastBlob = null, lastFile = null;
 
-    // --- File Upload Logic ---
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            fileName.textContent = e.target.files[0].name;
-            fileName.classList.remove('hidden');
-            testBtn.classList.remove('hidden');
+const $ = id => document.getElementById(id);
+
+function fmt(s) { return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+
+// ── Recording ──────────────────────────────────────────────────────
+async function toggleRecord() {
+    if (!isRecording) {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            alert('Microphone requires HTTPS or localhost.\nOpen via http://localhost:5005 or on mobile via http://<server-ip>:5005 on the same WiFi.');
+            return;
         }
-    });
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Reset
+            lastBlob = null;
+            $('rec-preview').style.display = 'none';
+            $('save-form').classList.remove('show');
+            $('quick-test-btn').style.display = 'none';
 
-    function testTranscription() {
-        if (fileInput.files.length === 0) return;
-        submitAudio(fileInput.files[0]);
-    }
-
-    // --- Live Mic Logic ---
-    recordBtn.addEventListener('click', async () => {
-        if (!isRecording) {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert("ERROR: Browser blocked microphone.\n\nTo use the microphone, you MUST access this page using http://localhost:5005 or http://127.0.0.1:5005\n\nIf you use your local network IP (like 192.168.x.x), the browser will block the microphone for security reasons.");
-                return;
-            }
-            
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-
-                mediaRecorder.addEventListener("dataavailable", event => {
-                    audioChunks.push(event.data);
-                });
-
-                mediaRecorder.addEventListener("stop", () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    // Provide a filename for the backend to use .webm extension
-                    const file = new File([audioBlob], "live_recording.webm", { type: 'audio/webm' });
-                    submitAudio(file);
-                    
-                    // Cleanup
-                    stream.getTracks().forEach(track => track.stop());
-                });
-
-                mediaRecorder.start();
-                isRecording = true;
-                
-                // UI Updates
-                recordBtn.innerHTML = '<i class="fa-solid fa-stop text-[10px] mr-1"></i> Stop Recording';
-                recordBtn.classList.replace('text-red-600', 'text-gray-700');
-                recordBtn.classList.replace('border-red-300', 'border-gray-300');
-                micIcon.classList.replace('text-gray-400', 'text-red-500');
-                micIcon.classList.add('animate-pulse');
-                recordingIndicator.classList.remove('hidden');
-                
-                // Timer
-                seconds = 0;
-                timerText.textContent = "00:00";
-                timerInterval = setInterval(() => {
-                    seconds++;
-                    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
-                    const s = String(seconds % 60).padStart(2, '0');
-                    timerText.textContent = `${m}:${s}`;
-                }, 1000);
-
-            } catch (err) {
-                alert("Microphone access was explicitly denied or is unavailable.\n\nPlease check your Browser Settings (click the lock icon in the URL bar) and your Mac System Settings (Privacy & Security -> Microphone) to ensure permission is granted.");
-                console.error(err);
-            }
-        } else {
-            mediaRecorder.stop();
-            isRecording = false;
-            clearInterval(timerInterval);
-            
-            // UI Updates
-            recordBtn.innerHTML = '<i class="fa-solid fa-circle text-[10px] mr-1"></i> Start Recording';
-            recordBtn.classList.replace('text-gray-700', 'text-red-600');
-            recordBtn.classList.replace('border-gray-300', 'border-red-300');
-            micIcon.classList.replace('text-red-500', 'text-gray-400');
-            micIcon.classList.remove('animate-pulse');
-            recordingIndicator.classList.add('hidden');
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                lastBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                $('rec-audio').src = URL.createObjectURL(lastBlob);
+                $('rec-preview').style.display = 'block';
+                $('save-form').classList.add('show');
+                $('quick-test-btn').style.display = '';
+                stream.getTracks().forEach(t => t.stop());
+                $('rec-icon').className = 'rec-icon done';
+                $('rec-icon-i').className = 'fa-solid fa-check';
+                $('rec-timer').classList.remove('show');
+                $('waveform').style.display = 'none';
+                $('rec-status-text').textContent = 'Recording captured! Preview below.';
+                $('rec-btn').innerHTML = '<i class="fa-solid fa-arrow-rotate-left" style="font-size:.6rem;"></i> Re-record';
+                $('rec-btn').className = 'btn btn-ghost';
+                $('rec-zone').classList.remove('active');
+                $('rec-zone').classList.add('done');
+            };
+            mediaRecorder.start();
+            isRecording = true;
+            $('rec-icon').className = 'rec-icon recording';
+            $('rec-icon-i').className = 'fa-solid fa-microphone';
+            $('rec-zone').classList.add('active');
+            $('rec-zone').classList.remove('done');
+            $('rec-status-text').textContent = 'Listening… speak now';
+            $('rec-btn').innerHTML = '<i class="fa-solid fa-stop" style="font-size:.6rem;"></i> Stop';
+            $('rec-btn').className = 'btn btn-ghost';
+            $('waveform').style.display = 'flex';
+            elapsedSec = 0;
+            $('rec-timer').textContent = '00:00';
+            $('rec-timer').classList.add('show');
+            timerInterval = setInterval(() => { elapsedSec++; $('rec-timer').textContent = fmt(elapsedSec); }, 1000);
+        } catch(err) {
+            alert('Microphone access denied. Check browser + system permissions.');
         }
-    });
-
-    // --- Shared Submit Logic ---
-    function submitAudio(file) {
-        const formData = new FormData();
-        formData.append('audio', file);
-        
-        // Show result box loading (Terminal style)
-        resultBox.classList.remove('hidden');
-        resultTitle.textContent = "SYSTEM_PROCESSING_AUDIO";
-        resultTitle.className = "font-bold text-amber-400";
-        resultIcon.className = "fa-solid fa-circle-notch fa-spin text-amber-400";
-        resultText.innerHTML = `> engine_target = 'MLX_WHISPER_MEDIUM'\n> uploading_file = '${file.name}'\n> awaiting_transcription...`;
-        
-        testBtn.disabled = true;
-        testBtn.classList.add('opacity-50');
-        recordBtn.disabled = true;
-        recordBtn.classList.add('opacity-50');
-
-        fetch('/api/test_asr_upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            testBtn.disabled = false;
-            testBtn.classList.remove('opacity-50');
-            recordBtn.disabled = false;
-            recordBtn.classList.remove('opacity-50');
-            
-            if (data.success) {
-                resultTitle.textContent = "TRANSCRIPTION_SUCCESSFUL";
-                resultTitle.className = "font-bold text-emerald-400";
-                resultIcon.className = "fa-solid fa-check text-emerald-400";
-                resultText.innerHTML = `> <b>DETECTED_TEXT:</b>\n\n<span class="text-white text-lg">${data.transcription}</span>\n\n> task_completed.`;
-            } else {
-                resultTitle.textContent = "TRANSCRIPTION_FAILED";
-                resultTitle.className = "font-bold text-red-400";
-                resultIcon.className = "fa-solid fa-triangle-exclamation text-red-400";
-                resultText.innerHTML = `> <b>ERROR:</b>\n\n<span class="text-red-300">${data.error}</span>\n\n> task_aborted.`;
-            }
-        })
-        .catch(err => {
-            testBtn.disabled = false;
-            testBtn.classList.remove('opacity-50');
-            recordBtn.disabled = false;
-            recordBtn.classList.remove('opacity-50');
-            
-            resultTitle.textContent = "NETWORK_ERROR";
-            resultTitle.className = "font-bold text-red-400";
-            resultIcon.className = "fa-solid fa-plug-circle-xmark text-red-400";
-            resultText.innerHTML = `> <b>FATAL:</b>\n\n<span class="text-red-300">${err.toString()}</span>\n\n> connection_terminated.`;
-        });
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        clearInterval(timerInterval);
     }
+}
+
+// ── File Upload ────────────────────────────────────────────────────
+function handleFileSelect(e) { if(e.target.files[0]) setFilePreview(e.target.files[0]); }
+function handleFileDrop(e) {
+    e.preventDefault();
+    $('upload-zone').classList.remove('dragover');
+    if(e.dataTransfer.files[0]) setFilePreview(e.dataTransfer.files[0]);
+}
+function setFilePreview(file) {
+    lastFile = file;
+    $('file-name').textContent = file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)';
+    $('file-audio').src = URL.createObjectURL(file);
+    $('file-info').style.display = '';
+}
+
+// ── Quick Test (no save) ───────────────────────────────────────────
+function quickTest() { if(!lastBlob) return; submitForTranscription(new File([lastBlob],'live.webm',{type:'audio/webm'})); }
+function quickTestFile() { if(!lastFile) return; submitForTranscription(lastFile); }
+function submitForTranscription(file) {
+    showTerminal('processing');
+    const fd = new FormData();
+    fd.append('audio', file);
+    fetch('/api/test_asr_upload', { method:'POST', body:fd })
+        .then(r=>r.json())
+        .then(d => d.success ? showTerminal('ok', d.transcription) : showTerminal('fail', null, d.error))
+        .catch(e => showTerminal('fail', null, e.toString()));
+}
+
+// ── Save to Library ────────────────────────────────────────────────
+function saveRecording() {
+    if (!lastBlob) return;
+    const label = $('rec-label').value.trim() || 'recording';
+    saveToLibrary(new File([lastBlob], label+'.webm', {type:'audio/webm'}), label);
+}
+function saveFile() {
+    if (!lastFile) return;
+    const label = $('file-label').value.trim() || lastFile.name.split('.')[0];
+    saveToLibrary(lastFile, label);
+}
+function saveToLibrary(file, label) {
+    showTerminal('processing');
+    const fd = new FormData();
+    fd.append('audio', file);
+    fd.append('label', label);
+    fetch('/api/voice_test/save', { method:'POST', body:fd })
+        .then(r=>r.json())
+        .then(d => {
+            if (d.success) { showTerminal('ok', d.transcription, null, d.filename, d.size_kb); loadLibrary(); }
+            else showTerminal('fail', null, d.error || 'Save failed');
+        })
+        .catch(e => showTerminal('fail', null, e.toString()));
+}
+
+// ── Terminal ───────────────────────────────────────────────────────
+function showTerminal(state, transcript, error, filename, sizeKb) {
+    $('terminal').classList.add('show');
+    $('t-tags').innerHTML = '';
+    if (state === 'processing') {
+        $('t-status').innerHTML = '<span style="color:#fb923c;">⏳ Processing with MLX Whisper...</span>';
+        $('t-transcript').textContent = '—';
+        return;
+    }
+    if (state === 'ok') {
+        $('t-status').innerHTML = '<span style="color:#4ade80;">✅ TRANSCRIPTION_OK</span>';
+        $('t-transcript').textContent = transcript || '(empty)';
+        const kws = ['attend', 'present', 'here', 'yes', 'confirm'];
+        const found = kws.filter(k => transcript.toLowerCase().includes(k));
+        $('t-tags').innerHTML = found.length
+            ? `<span class="t-tag ok">🔑 Keyword Hit: "${found.join('", "')}"</span>`
+            : `<span class="t-tag warn">⚠️ No attendance keyword detected</span>`;
+        if (filename) $('t-tags').innerHTML += ` <span class="t-tag ok">💾 Saved: ${filename} (${sizeKb} KB)</span>`;
+    }
+    if (state === 'fail') {
+        $('t-status').innerHTML = '<span style="color:#f87171;">❌ TRANSCRIPTION_FAILED</span>';
+        $('t-transcript').textContent = error || 'Unknown error';
+        $('t-tags').innerHTML = '<span class="t-tag fail">ENGINE ERROR</span>';
+    }
+}
+
+// ── Library ────────────────────────────────────────────────────────
+function loadLibrary() {
+    fetch('/api/voice_test/list').then(r=>r.json()).then(d=>renderLibrary(d.recordings||[])).catch(()=>renderLibrary([]));
+}
+function renderLibrary(recs) {
+    $('lib-count').textContent = recs.length + ' file' + (recs.length!==1?'s':'');
+    const body = $('library-body');
+    if (!recs.length) {
+        body.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open"></i><p style="font-size:.88rem;font-weight:600;">No recordings yet</p><p style="font-size:.78rem;margin:.2rem 0 0;">Record or upload above to get started.</p></div>`;
+        return;
+    }
+    body.innerHTML = recs.map(r => {
+        const parts = r.filename.replace(/\.(webm|wav|mp3|m4a|ogg)$/, '').split('_');
+        const label = parts.slice(2).join(' ') || r.filename;
+        const eid = r.filename.replace(/[^a-zA-Z0-9]/g, '_');
+        return `<div class="lib-item" id="li_${eid}">
+            <div class="lib-thumb"><i class="fa-solid fa-waveform-lines"></i></div>
+            <div class="lib-info">
+                <div class="lib-name">${label}</div>
+                <div class="lib-meta">${r.created} &middot; ${r.size_kb} KB</div>
+                <div class="lib-transcript" id="lt_${eid}" style="color:var(--faint);font-style:italic;">Not analysed yet — click 🧠</div>
+                <div class="audio-player" id="ap_${eid}">
+                    <audio controls src="/api/voice_test/audio/${encodeURIComponent(r.filename)}" style="width:100%;height:32px;margin-top:.3rem;border-radius:8px;"></audio>
+                </div>
+            </div>
+            <div class="lib-actions">
+                <button class="btn btn-ghost btn-sm" onclick="togglePlay('${eid}')" title="Play"><i class="fa-solid fa-play"></i></button>
+                <button class="btn btn-primary btn-sm" onclick="analyseFile('${r.filename}','${eid}')" title="Analyse"><i class="fa-solid fa-brain"></i></button>
+                <button class="btn btn-red btn-sm" onclick="deleteFile('${r.filename}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+}
+function togglePlay(eid) {
+    const ap = $('ap_'+eid);
+    const showing = ap.style.display === 'block';
+    document.querySelectorAll('.audio-player').forEach(p => p.style.display='none');
+    if (!showing) ap.style.display = 'block';
+}
+function analyseFile(filename, eid) {
+    showTerminal('processing');
+    fetch('/api/voice_test/transcribe/'+encodeURIComponent(filename))
+        .then(r=>r.json())
+        .then(d => {
+            if (d.success) {
+                showTerminal('ok', d.transcription);
+                const el = $('lt_'+eid);
+                if (el) el.textContent = '🔍 ' + d.transcription;
+            } else showTerminal('fail', null, d.error);
+        })
+        .catch(e => showTerminal('fail', null, e.toString()));
+}
+function deleteFile(filename) {
+    if (!confirm('Delete this recording? This cannot be undone.')) return;
+    fetch('/api/voice_test/delete/'+encodeURIComponent(filename), {method:'DELETE'})
+        .then(r=>r.json())
+        .then(d => { if(d.success) loadLibrary(); else alert('Delete failed: '+d.error); });
+}
+
+// ── ESP32 Mic Recording ────────────────────────────────────────────
+let esp32PollTimer = null;
+let esp32BarPct = 0;
+let esp32BarInterval = null;
+
+function triggerEsp32Record() {
+    const btn = $('esp32-rec-btn');
+    const statusEl = $('esp32-rec-status');
+    const progress = $('esp32-progress');
+    const bar = $('esp32-bar');
+    const barLabel = $('esp32-bar-label');
+    const badge = $('esp32-status-badge');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Triggering...';
+    statusEl.textContent = '';
+    progress.style.display = 'block';
+    esp32BarPct = 0;
+    bar.style.width = '0%';
+    barLabel.textContent = 'Sending command to ESP32...';
+    badge.textContent = '⏳ Recording in progress';
+    badge.style.background = '#fef3c7';
+    badge.style.color = '#92400e';
+
+    fetch('/api/voice_test/trigger_esp32', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) { esp32Fail('Server error: ' + d.error); return; }
+            barLabel.textContent = 'ESP32 received command — recording 9s from INMP441...';
+            // Animate bar over ~11s (9s rec + 2s upload margin)
+            esp32BarInterval = setInterval(() => {
+                esp32BarPct = Math.min(esp32BarPct + (100 / 110), 95);
+                bar.style.width = esp32BarPct + '%';
+            }, 100);
+            // Poll every 1.5s for up to 30s
+            let polls = 0;
+            esp32PollTimer = setInterval(() => {
+                polls++;
+                fetch('/api/voice_test/esp32_poll')
+                    .then(r => r.json())
+                    .then(p => {
+                        if (!p.pending && p.filename) {
+                            // File received! Stop the upload poll.
+                            clearInterval(esp32PollTimer);
+                            clearInterval(esp32BarInterval);
+                            bar.style.width = '90%';
+                            barLabel.textContent = '✅ Recording received! Whisper transcribing...';
+                            badge.textContent = '🧠 Transcribing...';
+                            badge.style.background = '#eff6ff';
+                            badge.style.color = '#1d4ed8';
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fa-solid fa-microchip"></i> Record from ESP32';
+                            loadLibrary(); // show file in library immediately
+
+                            // Phase 2: poll for transcription (background thread)
+                            let txPolls = 0;
+                            const txTimer = setInterval(() => {
+                                txPolls++;
+                                fetch('/api/voice_test/esp32_poll')
+                                    .then(r => r.json())
+                                    .then(p2 => {
+                                        if (p2.transcription !== null && p2.transcription !== undefined) {
+                                            clearInterval(txTimer);
+                                            bar.style.width = '100%';
+                                            barLabel.textContent = '✅ Done!';
+                                            badge.textContent = '✅ Done';
+                                            badge.style.background = '#dcfce7';
+                                            badge.style.color = '#166534';
+                                            // Show in terminal
+                                            analyseFile(p.filename, p.filename.replace(/[^a-zA-Z0-9]/g,'_'));
+                                            setTimeout(() => {
+                                                progress.style.display = 'none';
+                                                badge.textContent = 'Device Mic (INMP441)';
+                                                badge.style.background = '#f1f5f9';
+                                                badge.style.color = 'var(--muted)';
+                                            }, 3000);
+                                        } else if (txPolls > 60) { // 60 × 2s = 2min max
+                                            clearInterval(txTimer);
+                                            barLabel.textContent = '⚠️ Transcription timed out';
+                                            progress.style.display = 'none';
+                                        } else {
+                                            barLabel.textContent = `🧠 Whisper processing... (${txPolls * 2}s)`;
+                                        }
+                                    });
+                            }, 2000);
+                        } else if (polls > 40) { // 40 × 1.5s = 60s upload timeout
+                            clearInterval(esp32PollTimer);
+                            clearInterval(esp32BarInterval);
+                            esp32Fail('Timeout — ESP32 did not upload in time. Check WiFi & server connection.');
+                        } else {
+                            const step = ['Waiting for device...','Recording audio...','Recording audio...','Uploading WAV...','Uploading WAV...'];
+                            barLabel.textContent = step[Math.min(Math.floor(polls/8), 4)];
+                        }
+                    });
+            }, 1500);
+        })
+        .catch(e => esp32Fail(e.toString()));
+}
+
+function esp32Fail(msg) {
+    clearInterval(esp32PollTimer);
+    clearInterval(esp32BarInterval);
+    const btn = $('esp32-rec-btn');
+    const badge = $('esp32-status-badge');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-microchip"></i> Record from ESP32';
+    $('esp32-rec-status').textContent = '❌ ' + msg;
+    $('esp32-progress').style.display = 'none';
+    badge.textContent = '❌ Failed';
+    badge.style.background = '#fef2f2';
+    badge.style.color = '#991b1b';
+}
+
+
+loadLibrary();
 </script>
 {% endblock %}
