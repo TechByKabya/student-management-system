@@ -98,9 +98,17 @@ def init_db():
             FOREIGN KEY(student_id) REFERENCES Students(id)
         )
     ''')
-    # Safe migration: add is_proxy_source if it doesn't exist yet
+    # Safe migration: add is_proxy_source, transcription, wrong_attempts if they don't exist yet
     try:
         conn.execute("ALTER TABLE VoiceRecordings ADD COLUMN is_proxy_source INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE VoiceRecordings ADD COLUMN transcription TEXT DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE VoiceRecordings ADD COLUMN wrong_attempts TEXT DEFAULT ''")
     except Exception:
         pass
 
@@ -376,12 +384,12 @@ def wipe_all_fingerprints():
 # Voice Recording & Match Functions
 # ─────────────────────────────────────────────────────────
 
-def log_voice_recording(student_id: int, date: str, file_path: str) -> int:
+def log_voice_recording(student_id: int, date: str, file_path: str, transcription: str = "", wrong_attempts: str = "") -> int:
     """Save a voice recording entry. Returns the new row ID."""
     conn = get_db_connection()
     cursor = conn.execute(
-        "INSERT INTO VoiceRecordings (student_id, date, file_path) VALUES (?, ?, ?)",
-        (student_id, date, file_path)
+        "INSERT INTO VoiceRecordings (student_id, date, file_path, transcription, wrong_attempts) VALUES (?, ?, ?, ?, ?)",
+        (student_id, date, file_path, transcription, wrong_attempts)
     )
     conn.commit()
     row_id = cursor.lastrowid
@@ -402,6 +410,7 @@ def get_voice_recordings_for_date(date: str, exclude_proxy: bool = False):
     proxy_filter = "AND vr.is_proxy_source = 0" if exclude_proxy else ""
     rows = conn.execute(f'''
         SELECT vr.id, vr.student_id, s.name, s.school_id, vr.file_path,
+               vr.transcription, vr.wrong_attempts,
                datetime(vr.recorded_at, 'localtime') as recorded_at,
                vr.is_proxy_source
         FROM VoiceRecordings vr

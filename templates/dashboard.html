@@ -304,11 +304,24 @@
         pointer-events: none;
     }
 
-    .floating-device-dash {
+    .device-float-wrapper {
         animation: float-dash 6s ease-in-out infinite;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .floating-device-dash {
         filter: drop-shadow(0 15px 25px rgba(0, 0, 0, .5));
-        max-height: 240px;
+        max-height: 320px;
         object-fit: contain;
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.4s;
+    }
+    
+    .floating-device-dash:hover {
+        transform: scale(1.15) translateY(-5px) rotate(3deg);
+        filter: drop-shadow(0 20px 35px rgba(99, 102, 241, .4));
+        cursor: crosshair;
     }
 
     @keyframes float-dash {
@@ -378,6 +391,12 @@
             opacity: 0;
         }
     }
+
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(5,150,105,0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(5,150,105,0); }
+        100% { box-shadow: 0 0 0 0 rgba(5,150,105,0); }
+    }
 </style>
 
 <div style="display:flex; flex-direction:column; gap:1.5rem;">
@@ -393,24 +412,24 @@
         </div>
         <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
             <!-- Gate Toggle -->
-            <form id="portal-toggle-form" action="{{ url_for('action_toggle_attendance') }}" method="POST" style="margin:0; display:flex; align-items:center; gap:.5rem;
+            <form id="portal-toggle-form" action="{{ url_for('action_toggle_attendance') }}" method="POST" style="margin:0; display:flex; align-items:center; gap:.6rem;
                          background:var(--surface); border:1px solid var(--border);
-                         padding:.3rem .4rem .3rem .9rem; border-radius:10px; box-shadow:0 1px 2px rgba(0,0,0,.05);">
+                         padding:.4rem .5rem .4rem 1.1rem; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,.08);">
                 <div
-                    style="display:flex; align-items:center; gap:7px; border-right:1px solid var(--border); padding-right:10px;">
-                    <div id="portal-status-dot" style="width:8px; height:8px; border-radius:50%;
+                    style="display:flex; align-items:center; gap:8px; border-right:1px solid var(--border); padding-right:12px;">
+                    <div id="portal-status-dot" style="width:10px; height:10px; border-radius:50%;
                          background:{% if daily_status == 1 %}var(--success){% else %}var(--danger){% endif %};
-                         transition:background .2s;"></div>
-                    <span id="portal-status-label" style="font-size:.73rem; font-weight:800;
+                         transition:background .2s; box-shadow: 0 0 8px {% if daily_status == 1 %}var(--success){% else %}var(--danger){% endif %}; {% if daily_status == 1 %}animation: pulse-green 2s infinite;{% endif %}"></div>
+                    <span id="portal-status-label" style="font-size:.8rem; font-weight:800;
                           color:{% if daily_status == 1 %}var(--success){% else %}var(--danger){% endif %};">
-                        {% if daily_status == 1 %}GATE OPEN{% else %}GATE CLOSED{% endif %}
+                        {% if daily_status == 1 %}PORTAL OPEN{% else %}PORTAL SECURED{% endif %}
                     </span>
                 </div>
-                <button id="portal-toggle-btn" type="submit" style="background:{% if daily_status == 1 %}var(--danger-bg){% else %}var(--success-bg){% endif %};
+                <button id="portal-toggle-btn" type="submit" style="display:flex; align-items:center; gap:6px; background:{% if daily_status == 1 %}var(--danger-bg){% else %}var(--success-bg){% endif %};
                                color:{% if daily_status == 1 %}var(--danger){% else %}var(--success){% endif %};
-                               border:none; border-radius:7px; padding:.32rem .7rem;
-                               font-size:.73rem; font-weight:700; cursor:pointer; transition:all .2s;">
-                    {% if daily_status == 1 %}Lock Gate{% else %}Unlock Gate{% endif %}
+                               border:none; border-radius:9px; padding:.45rem .9rem;
+                               font-size:.78rem; font-weight:700; cursor:pointer; transition:all .2s;">
+                    {% if daily_status == 1 %}<i class="fa-solid fa-lock"></i> Close Portal{% else %}<i class="fa-solid fa-unlock"></i> Open Portal{% endif %}
                 </button>
             </form>
             <a href="{{ url_for('enroll') }}" style="display:inline-flex; align-items:center; gap:7px; padding:.5rem 1rem;
@@ -528,7 +547,7 @@
                     <i class="fa-solid fa-microchip"></i>
                 </div>
                 <div>
-                    <h2 style="font-size:1.4rem; font-weight:800; margin:0; tracking-tight;">Team X Terminal</h2>
+                    <h2 style="font-size:1.4rem; font-weight:800; margin:0; tracking-tight;">TeamX System</h2>
                     <p
                         style="font-size:.75rem; color:rgba(255,255,255,.6); margin:0; text-transform:uppercase; letter-spacing:.05em;">
                         Edge AI Campus Scanner</p>
@@ -550,7 +569,7 @@
                         <span id="esp32-dot"
                             style="border-radius:50%; background:#4ade80; width:10px; height:10px; position:relative;"></span>
                     </span>
-                    <span id="esp32-text" style="font-size:.75rem;">LINK ACTIVE</span>
+                    <span id="esp32-text" style="font-size:.75rem;">DEVICE ONLINE</span>
                 </div>
                 <div
                     style="display:flex; align-items:center; gap:6px; color:rgba(255,255,255,.4); font-size:.7rem; font-family:monospace;">
@@ -562,8 +581,10 @@
         <!-- Center: Floating Device Image -->
         <div
             style="flex:0.8; display:flex; align-items:center; justify-content:center; position:relative; padding:1rem 0; z-index:1;">
-            <img src="{{ url_for('static', filename='images/esp32_device.png') }}" alt="ESP32 Terminal"
-                class="floating-device-dash">
+            <div class="device-float-wrapper">
+                <img src="{{ url_for('static', filename='images/esp32_device.png') }}" alt="ESP32 Terminal"
+                    class="floating-device-dash">
+            </div>
         </div>
 
         <!-- Right: AI Security Modules Links (Callouts) -->
@@ -817,17 +838,21 @@
         const btn = document.getElementById('portal-toggle-btn');
         if (!label) return;
         if (isOpen) {
-            label.textContent = 'GATE OPEN';
+            label.textContent = 'PORTAL OPEN';
             label.style.color = 'var(--success)';
             dot.style.background = 'var(--success)';
-            btn.textContent = 'Lock Gate';
+            dot.style.boxShadow = '0 0 8px var(--success)';
+            dot.style.animation = 'pulse-green 2s infinite';
+            btn.innerHTML = '<i class="fa-solid fa-lock"></i> Close Portal';
             btn.style.background = 'var(--danger-bg)';
             btn.style.color = 'var(--danger)';
         } else {
-            label.textContent = 'GATE CLOSED';
+            label.textContent = 'PORTAL SECURED';
             label.style.color = 'var(--danger)';
             dot.style.background = 'var(--danger)';
-            btn.textContent = 'Unlock Gate';
+            dot.style.boxShadow = '0 0 8px var(--danger)';
+            dot.style.animation = 'none';
+            btn.innerHTML = '<i class="fa-solid fa-unlock"></i> Open Portal';
             btn.style.background = 'var(--success-bg)';
             btn.style.color = 'var(--success)';
         }
@@ -870,7 +895,7 @@
                     dot.style.background = '#4ade80';
                     anim.style.display = 'block';
                     anim.style.background = '#4ade80';
-                    text.textContent = 'LINK ACTIVE';
+                    text.textContent = 'DEVICE ONLINE';
                     iconBox.style.background = 'rgba(74,222,128,.2)';
                     seenTxt.textContent = diff < 3 ? 'Just now' : Math.floor(diff) + 's ago';
                 } else {
@@ -879,7 +904,7 @@
                         card.style.background = 'linear-gradient(135deg,#1c1917 0%,#292524 100%)';
                         dot.style.background = '#f87171';
                         anim.style.display = 'none';
-                        text.textContent = 'OFFLINE';
+                        text.textContent = 'DEVICE OFFLINE';
                         iconBox.style.background = 'rgba(248,113,113,.15)';
                         seenTxt.textContent = lastSeen > 0 ? Math.floor(diff) + 's ago' : 'Never seen';
                     }

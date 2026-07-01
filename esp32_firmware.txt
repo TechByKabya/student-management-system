@@ -810,8 +810,8 @@ void networkTask(void *parameter) {
 // ========================= CORE 0: SD Guard Task ===================
 void sdGuardTask(void *parameter) {
   static int consecutiveFailCycles = 0;   // must fail N cycles in a row
-  const  int FAIL_THRESHOLD = 3;          // 3 × 15 s = 45 s of failures needed
-  const  int CHECK_INTERVAL = 15000;      // ms between checks
+  const  int FAIL_THRESHOLD = 5;          // 5 failures needed before error
+  const  int CHECK_INTERVAL = 30000;      // 30s between checks (reduced aggressiveness)
 
   for (;;) {
     vTaskDelay(CHECK_INTERVAL / portTICK_PERIOD_MS);
@@ -1290,13 +1290,27 @@ void showBootSequence() {
   for (int i = 0; i < steps; i++) {
     if (xSemaphoreTake(displayMutex, portMAX_DELAY)) {
       display.clearDisplay();
+      
+      // Header
       display.fillRect(0, 0, 128, 14, SSD1306_WHITE);
       display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
       display.setCursor(2, 3);
       display.print("SYSTEM DIAGNOSTICS");
+      
+      // Text details (scrolling)
       display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-      display.setCursor(0, 25);
-      display.println(initSteps[i]);
+      if (i > 0) {
+        display.setCursor(0, 20);
+        display.print("> " + initSteps[i - 1]);
+      }
+      display.setCursor(0, 32);
+      display.print("> " + initSteps[i]);
+      
+      // Windows-style progress bar
+      display.drawRect(10, 50, 108, 8, SSD1306_WHITE);
+      int progressWidth = map(i, 0, steps - 1, 5, 104);
+      display.fillRect(12, 52, progressWidth, 4, SSD1306_WHITE);
+      
       display.display();
       xSemaphoreGive(displayMutex);
     }
@@ -1406,16 +1420,23 @@ void updateDisplaySafe() {
         display.print("Date: ");
         display.print(dateBuf);
         if (!isOnline) {
-          // ── Offline mode: show fingerprint-only notice ──
-          display.setCursor(0, 30);
-          display.println("** OFFLINE MODE **");
-          display.setCursor(0, 42);
-          display.print("Fingerprint Only");
+          // ── Offline mode: minimalist interface ──
+          display.fillRoundRect(0, 30, 52, 14, 2, SSD1306_WHITE);
+          display.setTextColor(SSD1306_BLACK, SSD1306_WHITE);
+          display.setCursor(5, 33);
+          display.print("OFFLINE");
+          display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
+          
+          display.setCursor(62, 33);
           if (unsentCount > 0) {
-            display.setCursor(0, 54);
-            display.print("Unsent: ");
             display.print(unsentCount);
+            display.print(" Unsent");
+          } else {
+            display.print("Synced");
           }
+          
+          display.setCursor(0, 48);
+          display.print("Ready: ID or Finger");
         } else {
           // ── Online mode: normal status ──
           display.setCursor(0, 32);
@@ -2094,15 +2115,11 @@ void handleAttendance() {
     // RFID attendance is therefore BLOCKED to prevent unverified proxies.
     // EXCEPTION: Master card always works offline for portal toggle.
     // Fingerprint attendance is handled at the bottom of handleAttendance().
-    if (!isOnline) {
-      if (cachedMasterRFID != "" && uidString == cachedMasterRFID) {
-        // Master card: allow portal toggle even offline
-        processAttendanceData("rfid", uidString);
-      } else {
-        // Student RFID: reject — proxy check not possible without server
-        playAudio("error");
-        triggerIndicatorSafe(false, "Offline Mode:\nFingerprint Only");
-      }
+    // ── Master Card: skip voice check ──
+    // If the scanned card is the master card, go straight to portal toggle.
+    // No proxy check or voice verification needed for admin.
+    if (cachedMasterRFID != "" && uidString == cachedMasterRFID) {
+      processAttendanceData("rfid", uidString);
       return;
     }
     // ─────────────────────────────────────────────────────────────────
@@ -2137,10 +2154,11 @@ void handleAttendance() {
       return;
     }
 
-    // ── Master Card: skip voice check ──
-    // If the scanned card is the master card, go straight to portal toggle.
-    // No voice verification needed for admin.
-    if (cachedMasterRFID != "" && uidString == cachedMasterRFID) {
+    // ── Offline Mode Gate ──
+    // If we are offline, we can't do voice verification.
+    // However, since they passed the TinyML behavioural check above, 
+    // we allow the RFID scan directly!
+    if (!isOnline) {
       processAttendanceData("rfid", uidString);
       return;
     }
@@ -2282,7 +2300,34 @@ void handleAttendance() {
           }
           delay(50);
         }
-        triggerIndicatorSafe(false, "Voice+Finger\nFailed. Retry.");
+        // Timeout → blacklist them because they failed voice and then failed finger!
+        int studentIdx = getWhitelistIndexByRFID(uidString);
+        if (studentIdx >= 0) {
+          whitelist[studentIdx].is_blacklisted = true;
+        }
+        JsonDocument doc;
+        doc["uid"] = uidString;
+        doc["ai_dwell"] = 0;
+        doc["ai_inter"] = 0;
+        doc["ai_prediction"] = "PROXY";
+        String jsonString;
+        serializeJson(doc, jsonString);
+        
+        if (isOnline && serverBaseURL != "") {
+          doHttpPost("/api/esp32/proxy_alert", jsonString, 4000);
+          JsonDocument resolveDoc;
+          resolveDoc["rfid_uid"] = uidString;
+          resolveDoc["result"] = "BLACKLISTED";
+          String resolveJson;
+          serializeJson(resolveDoc, resolveJson);
+          doHttpPost("/api/esp32/voice_match_resolve", resolveJson, 3000);
+        } else {
+          doc["sensor"] = "proxy_alert";
+          serializeJson(doc, jsonString);
+          logDataToSD(jsonString);
+        }
+        
+        triggerIndicatorSafe(false, "AUDIT FAILED\nBlacklisted!");
         return;
       }
       // First wrong attempt — show warning and retry once more

@@ -99,7 +99,7 @@
 
   /* ── Two-column layout ── */
   .vm-columns {
-    display:grid; grid-template-columns:2fr 3fr; gap:20px; align-items:start;
+    display:grid; grid-template-columns:1fr 2fr; gap:20px; align-items:start;
   }
   @media(max-width:1100px){ .vm-columns { grid-template-columns:1fr; } }
 
@@ -194,7 +194,7 @@
   .vm-filter-btn.active-clean  { background:var(--vm-green); color:#fff; border-color:var(--vm-green);}
 
   /* ── Analysis table ── */
-  .vm-table-wrap { overflow-x:auto; max-height:580px; overflow-y:auto; }
+  .vm-table-wrap { overflow-x:auto; }
   .vm-table-wrap::-webkit-scrollbar { width:4px; height:4px; }
   .vm-table-wrap::-webkit-scrollbar-thumb { background:var(--vm-border); border-radius:4px; }
 
@@ -359,7 +359,7 @@
                            cursor:pointer;transition:all .15s;"
                     onmouseover="this.style.background='#fee2e2'"
                     onmouseout="this.style.background='#fef2f2'">
-              <i class="fa-solid fa-rotate-left"></i> Reset Demo
+              <i class="fa-solid fa-trash-can"></i> Clear All
             </button>
           </form>
           {% endif %}
@@ -393,6 +393,18 @@
                        src="/static/{{ rec.file_path }}">
                   Your browser does not support audio.
                 </audio>
+                <div style="margin-top: 8px; font-size: 0.75rem; color: var(--vm-gray);">
+                  {% if rec.wrong_attempts %}
+                    <div style="color: var(--vm-amber); margin-bottom: 2px;">
+                      <i class="fa-solid fa-xmark" style="width: 14px;"></i> <b>Failed attempts:</b> {{ rec.wrong_attempts }}
+                    </div>
+                  {% endif %}
+                  {% if rec.transcription %}
+                    <div style="color: var(--vm-green);">
+                      <i class="fa-solid fa-check" style="width: 14px;"></i> <b>Accepted phrase:</b> "{{ rec.transcription }}"
+                    </div>
+                  {% endif %}
+                </div>
               </div>
               {% endfor %}
             {% endif %}
@@ -420,6 +432,18 @@
                        src="/static/{{ rec.file_path }}">
                   Your browser does not support audio.
                 </audio>
+                <div style="margin-top: 8px; font-size: 0.75rem; color: var(--vm-gray);">
+                  {% if rec.wrong_attempts %}
+                    <div style="color: var(--vm-amber); margin-bottom: 2px;">
+                      <i class="fa-solid fa-xmark" style="width: 14px;"></i> <b>Failed attempts:</b> {{ rec.wrong_attempts }}
+                    </div>
+                  {% endif %}
+                  {% if rec.transcription %}
+                    <div style="color: var(--vm-green);">
+                      <i class="fa-solid fa-check" style="width: 14px;"></i> <b>Accepted phrase:</b> "{{ rec.transcription }}"
+                    </div>
+                  {% endif %}
+                </div>
                 <div class="vm-proxy-note">
                   <i class="fa-solid fa-circle-info"></i>
                   Kept for audit — excluded from future comparisons

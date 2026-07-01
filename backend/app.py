@@ -41,8 +41,11 @@ app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32 MB max (voice WAV can 
 VOICE_DIR = os.path.join(os.path.dirname(__file__), '..', 'static', 'voice_recordings')
 os.makedirs(VOICE_DIR, exist_ok=True)
 
-# In-memory store for pending voice recordings (student_id -> temp file path)
+# In-memory store for pending voice recordings
+# Maps student_id -> {'path': rel_path, 'transcription': text, 'wrong_attempts': list}
 PENDING_VOICES = {}
+# Maps student_id -> list of wrong transcriptions heard today
+WRONG_VOICE_ATTEMPTS = {}
 
 # ──────────────────────────────────────────────────────────
 # SpeechBrain Speaker Verification Model (lazy-loaded once)
@@ -1289,7 +1292,11 @@ def esp32_attendance():
         # --- Finalize Pending Voice ---
         # If there's a pending voice, it means they just passed the fingerprint or voice audit!
         if student['id'] in PENDING_VOICES:
-            pending_rel_path = PENDING_VOICES[student['id']]
+            voice_data = PENDING_VOICES[student['id']]
+            pending_rel_path = voice_data['path']
+            transcription = voice_data['transcription']
+            wrong_attempts = ",".join(voice_data['wrong_attempts'])
+            
             pending_abs_path = os.path.join(os.path.dirname(__file__), '..', 'static', pending_rel_path)
             if os.path.exists(pending_abs_path):
                 # Rename the file to remove "_pending" and append a formal timestamp
@@ -1303,7 +1310,7 @@ def esp32_attendance():
                 
                 # Formally log the successful voice to the database
                 from database import log_voice_recording
-                log_voice_recording(student['id'], today, final_rel_path)
+                log_voice_recording(student['id'], today, final_rel_path, transcription, wrong_attempts)
                 print(f"[Voice] Finalized verified recording for {student['name']} -> {final_rel_path}")
             
             # Remove from pending list
@@ -1505,11 +1512,14 @@ def esp32_voice_submit():
     # Relative path for serving static files
     rel_path = f"voice_recordings/{today}/{filename}"
 
-    # DO NOT log to database yet! Hold in pending dict until turnstile opens.
-    PENDING_VOICES[student_id] = rel_path
-    print(f"[Voice] Saved PENDING recording for {student['name']} -> {rel_path} (Silent: {is_silent})")
     if is_silent:
         print(f"[Voice] SILENCE DETECTED for {student['name']}. Flagging as proxy to force fingerprint.")
+        # Store as pending so we can finalize it if they pass fingerprint
+        PENDING_VOICES[student_id] = {
+            'path': rel_path,
+            'transcription': '[SILENCE]',
+            'wrong_attempts': WRONG_VOICE_ATTEMPTS.pop(student_id, [])
+        }
         return jsonify({
             'proxy': True,
             'student_id': student_id,
@@ -1530,17 +1540,31 @@ def esp32_voice_submit():
             # Fuzzy keyword check: accept "present", "presence", "presents",
             # or any word starting with "pres", "prez", "priz" to handle Bangladeshi accent variations.
             # We also accept "sir" directly, since sometimes Whisper misses the first word entirely.
-            words = transcription.split()
+            words = transcription.replace(',', '').replace('.', '').replace('?', '').replace('!', '').split()
             allowed_prefixes = ("pres", "prez", "priz", "pras", "pray")
-            phrase_ok = any(
+            
+            has_valid_word = any(
                 w in ("present", "presence", "presents", "sir", "yes", "shir") or
                 any(w.startswith(prefix) and len(w) >= 4 for prefix in allowed_prefixes)
                 for w in words
             )
+            
+            # Reject if they say things like "hello sir" or "test sir"
+            banned_words = {"hello", "hi", "hey", "test", "testing", "what", "good", "morning", "afternoon", "yo"}
+            has_banned_word = any(w in banned_words for w in words)
+            
+            phrase_ok = has_valid_word and not has_banned_word
 
             if not phrase_ok:
                 print(f"[Voice] WRONG PHRASE for {student['name']}. Expected 'present', heard '{transcription}'.")
                 add_to_ai_feed(student['name'], 0, 0, f"WRONG PHRASE: {transcription}")
+                
+                # Track the wrong attempt
+                if student_id not in WRONG_VOICE_ATTEMPTS:
+                    WRONG_VOICE_ATTEMPTS[student_id] = []
+                if transcription:
+                    WRONG_VOICE_ATTEMPTS[student_id].append(transcription)
+
                 return jsonify({
                     'proxy': False,
                     'wrong_phrase': True,
@@ -1548,6 +1572,14 @@ def esp32_voice_submit():
                     'student_name': student['name'],
                     'note': f"wrong_phrase_heard_{transcription}"
                 })
+
+            # If phrase is OK, store in pending queue
+            PENDING_VOICES[student_id] = {
+                'path': rel_path,
+                'transcription': transcription,
+                'wrong_attempts': WRONG_VOICE_ATTEMPTS.pop(student_id, [])
+            }
+            print(f"[Voice] Saved PENDING recording for {student['name']} -> {rel_path}")
     # --- Cross-match against all OTHER voice recordings from today ---
     # exclude_proxy=True: proxy-flagged voices are kept in DB/disk for review,
     # but must NOT be used as comparison targets — they would falsely flag
